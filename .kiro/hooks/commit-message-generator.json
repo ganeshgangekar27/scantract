@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Commit Message Generator",
+      "trigger": "PostTaskExec",
+      "action": {
+        "type": "agent",
+        "prompt": "Run `git diff --cached` and, if nothing is staged, run `git diff`\n   instead. Summarize the change and write a single commit message in\n   Conventional Commits format (feat:, fix:, chore:, docs:, refactor:,\n   test:). Keep the subject line under 72 characters. If the diff touches\n   multiple unrelated areas, add a short bullet list in the body. Output\n   only the commit message — do not run git commit yourself, I'll review\n   and commit manually."
+      },
+      "description": "Draft a commit message for the changes made in the task that was just\n   completed.",
+      "enabled": true
+    }
+  ]
+}

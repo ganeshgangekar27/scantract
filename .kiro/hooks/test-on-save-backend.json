@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Test on Save — Backend",
+      "trigger": "PostFileSave",
+      "action": {
+        "type": "agent",
+        "prompt": "A backend Python file was just saved. Find its matching test file\n   (e.g. backend/app/foo.py -> backend/tests/test_foo.py). If a matching\n   test file exists, run it with pytest and report pass/fail results,\n   including the failure traceback for any failing test, in chat. If no\n   matching test file exists, do nothing and don't mention it."
+      },
+      "description": "Run the matching pytest file when a backend Python file is saved.",
+      "matcher": "^backend/.*\\.py$",
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Docs Sync — API Routes",
+      "trigger": "PostFileSave",
+      "action": {
+        "type": "agent",
+        "prompt": "A FastAPI route file was just saved. Inspect the route decorators,\n   path, HTTP method, and request/response models in this file. Update\n   the \"API Reference\" section of the top-level README.md to match: list\n   each endpoint, its method, path, request body shape, and response\n   shape. Do not touch any other section of the README. If the API\n   Reference section doesn't exist yet, create it at the end of the file."
+      },
+      "description": "Keep README's API Reference section in sync with FastAPI route changes.",
+      "matcher": "^backend/app/routes/.*\\.py$",
+      "enabled": true
+    }
+  ]
+}
