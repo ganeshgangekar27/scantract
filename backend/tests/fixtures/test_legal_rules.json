@@ -1,0 +1,32 @@
+[
+  {
+    "state": null,
+    "act_name": "Model Tenancy Act 2021",
+    "section_reference": "Section 7(1)",
+    "rule_text": "Security deposit shall not exceed an amount equivalent to twice the monthly rent in case of residential property."
+  },
+  {
+    "state": "Maharashtra",
+    "act_name": "Maharashtra Rent Control Act 1999",
+    "section_reference": "Section 11(2)",
+    "rule_text": "In the case of premises let for residential purposes, the standard rent shall not exceed four per cent per annum of the aggregate amount of the cost of construction and the market price of the land."
+  },
+  {
+    "state": null,
+    "act_name": "Indian Contract Act 1872",
+    "section_reference": "Section 73",
+    "rule_text": "When a contract has been broken, the party who suffers by such breach is entitled to receive compensation for any loss or damage caused to him thereby."
+  },
+  {
+    "state": "Karnataka",
+    "act_name": "Karnataka Rent Control Act 2001",
+    "section_reference": "Section 4(1)",
+    "rule_text": "No landlord shall claim or accept any premium or other like sum in addition to the rent in respect of the grant or renewal of a lease of any premises."
+  },
+  {
+    "state": null,
+    "act_name": "Model Tenancy Act 2021",
+    "section_reference": "Section 21(1)",
+    "rule_text": "The tenancy shall be terminated by either party giving at least three months' notice in writing to the other party."
+  }
+]
