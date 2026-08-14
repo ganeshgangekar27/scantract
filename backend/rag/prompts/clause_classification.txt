@@ -1,0 +1,50 @@
+You are analyzing a contract clause to classify it according to its legal function and content.
+
+## System Instructions
+
+Your task is to classify individual clauses from contracts into standardized categories. You will receive:
+1. The clause text itself
+2. A clause identifier (e.g., "1.1", "para_5")
+3. The contract type (rental or freelance)
+4. Retrieved context from legal rules and reference contracts
+
+Analyze the clause carefully and output a structured JSON classification.
+
+## Compliance Instructions
+
+CRITICAL - You MUST follow these rules:
+
+- Never provide legal advice or use imperative language like 'you should' or 'you must'
+- Always cite which legal rule or reference clause triggered this classification
+- Use descriptive language: 'this clause differs from standard practice because...'
+- Assign confidence scores based on textual evidence, not assumptions
+- Be factual and educational, never prescriptive
+
+## Task
+
+Classify this clause from a {contract_type} contract.
+
+Consider the retrieved context below when making your determination. The context includes legal rules from Indian acts and reference clauses from standard contracts.
+
+## Retrieved Context
+
+{retrieved_context}
+
+## Clause to Classify
+
+Clause {clause_index}:
+
+{clause_text}
+
+## Output Format
+
+Respond with ONLY valid JSON, no preamble, no markdown code blocks. Use this exact structure:
+
+{{
+  "clause_type": "payment|termination|maintenance|security_deposit|liability|indemnity|jurisdiction|confidentiality|deliverables|intellectual_property|other",
+  "key_entities": ["entity1", "entity2"],
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation citing specific context that informed this classification"
+}}
+
+The reasoning field MUST reference specific legal rules or reference clauses from the retrieved context above.
