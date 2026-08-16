@@ -20,7 +20,7 @@ backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
 
 from db.legal_kb.models import LegalRule, LegalRuleData
-from db.legal_kb.embeddings import embed_text, embed_batch
+from rag.embeddings import embed_text, embed_batch
 from db.legal_kb.seed_legal_kb import load_seed_data, rule_exists, seed_legal_kb
 
 
@@ -137,7 +137,7 @@ async def test_embed_text_single():
     
     mock_result = {'embedding': mock_embedding}
     
-    with patch('db.legal_kb.embeddings.genai.embed_content', return_value=mock_result):
+    with patch('rag.embeddings.genai.embed_content', return_value=mock_result):
         result = await embed_text("Sample legal text for testing")
         
         assert isinstance(result, list), "Result should be a list"
@@ -156,7 +156,7 @@ async def test_embed_text_dimension_validation():
     
     mock_result = {'embedding': mock_embedding}
     
-    with patch('db.legal_kb.embeddings.genai.embed_content', return_value=mock_result):
+    with patch('rag.embeddings.genai.embed_content', return_value=mock_result):
         with pytest.raises(ValueError) as exc_info:
             await embed_text("Sample text")
         
@@ -187,7 +187,7 @@ async def test_embed_batch_multiple():
         idx = texts.index(text)
         return mock_embeddings[idx]
     
-    with patch('db.legal_kb.embeddings.embed_text', side_effect=mock_embed_text):
+    with patch('rag.embeddings.embed_text', side_effect=mock_embed_text):
         results = await embed_batch(texts)
         
         assert len(results) == 5, "Should return 5 embeddings"
@@ -214,7 +214,7 @@ async def test_embed_batch_batching():
         call_count += 1
         return [0.1] * 3072
     
-    with patch('db.legal_kb.embeddings.embed_text', side_effect=mock_embed_text):
+    with patch('rag.embeddings.embed_text', side_effect=mock_embed_text):
         results = await embed_batch(texts, batch_size=batch_size)
         
         assert len(results) == 250, "Should return all 250 embeddings"
@@ -255,6 +255,12 @@ async def test_seed_script_idempotency(db_session: AsyncSession):
         section_reference="Section 1",
         rule_text="This is a test rule for idempotency checking."
     )
+    
+    # Clean up any existing test data first
+    await db_session.execute(
+        text("DELETE FROM legal_rules WHERE act_name = 'Test Act 2026'")
+    )
+    await db_session.commit()
     
     # First check: rule should not exist
     exists_before = await rule_exists(

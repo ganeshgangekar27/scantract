@@ -1,0 +1,170 @@
+[
+  {
+    "contract_type": "rental",
+    "clause_category": "rent_payment",
+    "clause_text": "The monthly rent is INR 25,000, payable by the 5th of each month via bank transfer or cheque. Late payment beyond 10 days will incur a penalty of INR 500 per day.",
+    "source_label": "Maharashtra standard lease (market rate)"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "rent_payment",
+    "clause_text": "Rent is INR 18,000 per month, due on the 1st of each month. Payment must be made to the landlord's account. A grace period of 7 days is allowed without penalty.",
+    "source_label": "Karnataka residential lease template"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "security_deposit",
+    "clause_text": "A refundable security deposit of INR 75,000 (equivalent to three months' rent) shall be paid at the time of signing. The deposit will be refunded within 30 days of lease termination, after deducting any damages.",
+    "source_label": "Delhi NCR standard agreement"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "security_deposit",
+    "clause_text": "Tenant shall pay a security deposit equal to three months' rent as security for performance of obligations under this lease. Said deposit shall be held interest-free and returned upon lease expiry.",
+    "source_label": "Mumbai flat lease format"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "maintenance_charges",
+    "clause_text": "Tenant shall pay monthly maintenance charges of INR 2,000 to the housing society directly. This covers common area maintenance, water charges, and garbage collection.",
+    "source_label": "Bangalore apartment agreement"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "maintenance_charges",
+    "clause_text": "All utility bills including electricity, water, and gas shall be borne by the tenant and paid directly to respective authorities. Landlord is responsible only for structural repairs.",
+    "source_label": "Pune rental standard form"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "termination_notice",
+    "clause_text": "Either party may terminate this agreement by giving 60 days' written notice to the other party. Notice must be sent via registered post or email with acknowledgment.",
+    "source_label": "Tamil Nadu lease agreement template"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "termination_notice",
+    "clause_text": "The lease may be terminated by either party with 90 days' advance notice in writing. Early termination by tenant without notice will result in forfeiture of security deposit.",
+    "source_label": "Hyderabad residential tenancy deed"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "lock_in_period",
+    "clause_text": "This agreement has a lock-in period of 11 months from the date of commencement. During this period, neither party can terminate the lease except for breach of terms.",
+    "source_label": "Gurgaon standard lease (11-month)"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "lock_in_period",
+    "clause_text": "For the first 6 months, neither party may terminate this lease agreement unless there is a material breach. After 6 months, either party may terminate with 2 months' notice.",
+    "source_label": "Kolkata flat rental agreement"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "repairs_maintenance",
+    "clause_text": "Landlord shall be responsible for structural repairs including walls, roof, plumbing, and electrical wiring. Tenant is responsible for minor repairs and day-to-day maintenance of fixtures and fittings.",
+    "source_label": "Chennai house lease format"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "payment_terms",
+    "clause_text": "Consultant shall be paid INR 1,50,000 per month on submission of invoice by the 5th of each month. Payment will be made within 7 working days of invoice receipt.",
+    "source_label": "IT consulting agreement template"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "payment_terms",
+    "clause_text": "Payment of INR 75,000 shall be made within 15 days of project milestone completion. Invoices must include GST registration details and supporting documents for milestone verification.",
+    "source_label": "Design services contract (project-based)"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "payment_terms",
+    "clause_text": "Freelancer will receive 50% advance payment upon contract signing and remaining 50% upon delivery of final deliverables. All payments subject to TDS deduction as per Income Tax Act.",
+    "source_label": "Content writing fixed-price agreement"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "scope_of_work",
+    "clause_text": "Consultant shall provide web development services including frontend design, backend API development, and database schema design as per specifications in Annexure A.",
+    "source_label": "Software development consultancy deed"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "scope_of_work",
+    "clause_text": "Freelancer agrees to design and deliver a mobile application for iOS and Android platforms with features including user authentication, payment gateway integration, and push notifications.",
+    "source_label": "Mobile app development contract"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "intellectual_property",
+    "clause_text": "All work product and intellectual property created by Consultant during the term of this agreement shall be the exclusive property of the Client and deemed as 'work for hire'.",
+    "source_label": "Standard IP assignment clause (client-owned)"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "intellectual_property",
+    "clause_text": "Upon full payment, all copyrights and IP rights in deliverables shall transfer to Client. Freelancer retains rights to pre-existing materials and may use generic techniques in future work.",
+    "source_label": "Marketing agency service agreement"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "confidentiality",
+    "clause_text": "Consultant agrees to maintain confidentiality of all client data, business strategies, and proprietary information disclosed during the engagement. This obligation survives termination for 3 years.",
+    "source_label": "NDA clause for consulting contracts"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "confidentiality",
+    "clause_text": "Freelancer shall not disclose any proprietary information, trade secrets, or confidential data to third parties without prior written consent. Breach will result in liquidated damages of INR 5,00,000.",
+    "source_label": "Tech startup freelancer agreement"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "termination_clause",
+    "clause_text": "Either party may terminate this agreement with 30 days' written notice. Upon termination, Freelancer shall deliver all work in progress and Client shall pay for work completed to date.",
+    "source_label": "Retainer-based consulting contract"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "termination_clause",
+    "clause_text": "This contract may be terminated by either party with 15 days' notice for convenience, or immediately for cause including breach, non-performance, or insolvency of the other party.",
+    "source_label": "Fixed-term project agreement"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "indemnity",
+    "clause_text": "Consultant agrees to indemnify and hold harmless the Client from any claims, damages, or liabilities arising from Consultant's negligence, breach of contract, or violation of third-party rights.",
+    "source_label": "Professional services indemnity clause"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "indemnity",
+    "clause_text": "Freelancer shall indemnify the Client against any claims arising from intellectual property infringement, data breaches, or non-compliance with applicable laws in the course of providing services.",
+    "source_label": "Digital services provider agreement"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "liability_limitation",
+    "clause_text": "Consultant's total liability under this agreement shall not exceed the total fees paid by Client in the 6 months preceding the claim. This cap does not apply to gross negligence or willful misconduct.",
+    "source_label": "Capped liability clause (6-month limit)"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "liability_limitation",
+    "clause_text": "In no event shall freelancer be liable for consequential damages, lost profits, or indirect damages arising from this agreement, regardless of whether such damages were foreseeable.",
+    "source_label": "No consequential damages clause"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "dispute_resolution",
+    "clause_text": "Any disputes arising from this agreement shall be resolved through arbitration under the Arbitration and Conciliation Act, 1996. Seat of arbitration shall be Mumbai, Maharashtra.",
+    "source_label": "Arbitration clause (Mumbai seat)"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "dispute_resolution",
+    "clause_text": "Parties agree to first attempt mediation before pursuing legal action. If mediation fails within 30 days, disputes shall be subject to exclusive jurisdiction of courts in Bangalore.",
+    "source_label": "Mediation-first dispute resolution"
+  }
+]

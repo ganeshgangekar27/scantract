@@ -1,12 +1,12 @@
 """
-Embeddings module for legal knowledge base using Google Gemini.
+Shared embeddings module for ScanTract using Google Gemini.
 
 Uses Gemini's gemini-embedding-001 model (3072 dimensions) with exact
 vector search (no IVFFlat index, as it cannot support >2000 dimensions).
 
-CRITICAL: This is a self-contained module for Stage 5A only.
-Stage 5B will refactor this to backend/rag/embeddings.py for shared use.
-Do NOT move this module pre-emptively.
+Shared by:
+- Stage 5A: Legal rules KB (backend/db/legal_kb/)
+- Stage 5B: Reference corpus (backend/db/reference_corpus/)
 """
 
 import os

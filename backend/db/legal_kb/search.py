@@ -5,7 +5,7 @@ Legal rules similarity search with state-aware filtering.
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 from db.legal_kb.models import LegalRule, LegalRuleSearchResult
-from db.legal_kb.embeddings import embed_text
+from rag.embeddings import embed_text
 from typing import Optional
 import logging
 

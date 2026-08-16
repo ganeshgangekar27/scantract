@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select, and_
 from db.legal_kb.models import LegalRule, LegalRuleData
-from db.legal_kb.embeddings import embed_text
+from rag.embeddings import embed_text
 from typing import Optional
 import os
 import sys

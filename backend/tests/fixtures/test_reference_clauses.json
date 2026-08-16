@@ -1,0 +1,38 @@
+[
+  {
+    "contract_type": "rental",
+    "clause_category": "rent_payment",
+    "clause_text": "The monthly rent is INR 25,000, payable by the 5th of each month.",
+    "source_label": "Test rental template A"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "security_deposit",
+    "clause_text": "A refundable security deposit of INR 75,000 is required.",
+    "source_label": "Test rental template B"
+  },
+  {
+    "contract_type": "rental",
+    "clause_category": "termination_notice",
+    "clause_text": "Either party may terminate with 60 days written notice.",
+    "source_label": "Test rental template C"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "payment_terms",
+    "clause_text": "Consultant shall be paid INR 1,50,000 per month within 7 days of invoice.",
+    "source_label": "Test freelance template A"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "intellectual_property",
+    "clause_text": "All work product created shall be owned exclusively by the client.",
+    "source_label": "Test freelance template B"
+  },
+  {
+    "contract_type": "freelance",
+    "clause_category": "confidentiality",
+    "clause_text": "Freelancer agrees to maintain confidentiality of all client data.",
+    "source_label": "Test freelance template C"
+  }
+]
