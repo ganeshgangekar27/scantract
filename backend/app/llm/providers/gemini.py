@@ -33,7 +33,7 @@ async def call_gemini(messages: list[dict[str, str]]) -> tuple[str, int]:
         )
     
     # Read model from environment or use default
-    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    model_name = os.getenv("GEMINI_MODEL", "models/gemini-3.7-flash")
     
     try:
         # Configure Gemini API

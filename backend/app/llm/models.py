@@ -1,11 +1,14 @@
 """
-Data models for LLM clause classification.
+Data models for LLM clause classification and risk detection.
 
-Defines the clause type taxonomy, classification results, and validation logic.
+Defines the clause type taxonomy, classification results, risk detection models,
+and validation logic.
 """
 
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal
+from datetime import datetime
+from enum import Enum
 import logging
 
 logger = logging.getLogger(__name__)
@@ -68,3 +71,127 @@ class ClassificationResult(BaseModel):
     classification: ClauseClassification | None = None
     error: str | None = None
     tokens_used: int = 0
+
+
+# ============================================================================
+# Risk Detection Models
+# ============================================================================
+
+class Severity(str, Enum):
+    """Severity level for risk findings."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class RiskyClauseFinding(BaseModel):
+    """
+    Represents a risky clause detected in the contract.
+    
+    Attributes:
+        clause_id: Identifier of the clause (e.g., "1.1", "para_5")
+        reason: Explanation of why this clause is risky (min 10 chars)
+        triggering_rule_or_corpus: MANDATORY citation from legal KB or reference corpus
+        severity: Risk severity level (low, medium, high)
+    """
+    clause_id: str
+    reason: str = Field(min_length=10)
+    triggering_rule_or_corpus: str = Field(min_length=1)
+    severity: Severity
+    
+    @field_validator("triggering_rule_or_corpus")
+    @classmethod
+    def validate_traceability(cls, v: str) -> str:
+        """
+        Validate that triggering_rule_or_corpus is non-empty and not whitespace-only.
+        This is a NON-NEGOTIABLE requirement for traceability.
+        """
+        if not v or not v.strip():
+            raise ValueError(
+                "triggering_rule_or_corpus cannot be empty or whitespace-only. "
+                "Every risky clause finding MUST be traceable to a specific legal rule "
+                "or reference example."
+            )
+        return v.strip()
+
+
+class MissingClauseFinding(BaseModel):
+    """
+    Represents a missing clause that should be present in the contract.
+    
+    Attributes:
+        expected_clause_type: Type of clause that is missing
+        why_expected: Explanation of why this clause should be present (min 10 chars)
+        triggering_rule_or_corpus: MANDATORY citation from legal KB or reference corpus
+        severity: Risk severity level (low, medium, high)
+    """
+    expected_clause_type: str
+    why_expected: str = Field(min_length=10)
+    triggering_rule_or_corpus: str = Field(min_length=1)
+    severity: Severity
+    
+    @field_validator("triggering_rule_or_corpus")
+    @classmethod
+    def validate_traceability(cls, v: str) -> str:
+        """
+        Validate that triggering_rule_or_corpus is non-empty and not whitespace-only.
+        This is a NON-NEGOTIABLE requirement for traceability.
+        """
+        if not v or not v.strip():
+            raise ValueError(
+                "triggering_rule_or_corpus cannot be empty or whitespace-only. "
+                "Every missing clause finding MUST be traceable to a specific legal rule "
+                "or reference example."
+            )
+        return v.strip()
+
+
+class RiskDetectionResponse(BaseModel):
+    """
+    Response from LLM containing detected risks and missing clauses.
+    
+    Attributes:
+        risky_clauses: List of risky clauses found in the contract
+        missing_clauses: List of clauses that should be present but are missing
+    """
+    risky_clauses: list[RiskyClauseFinding] = Field(default_factory=list)
+    missing_clauses: list[MissingClauseFinding] = Field(default_factory=list)
+
+
+class RiskDetectionResult(BaseModel):
+    """
+    Complete result of risk detection analysis for a contract.
+    
+    Attributes:
+        contract_id: UUID of the analyzed contract
+        risky_clauses: List of risky clauses found
+        missing_clauses: List of missing clauses identified
+        total_risks: Total number of risky clauses
+        total_missing: Total number of missing clauses
+        high_severity_count: Number of high-severity findings
+        medium_severity_count: Number of medium-severity findings
+        low_severity_count: Number of low-severity findings
+        processed_at: ISO timestamp of when analysis was performed
+    """
+    contract_id: str
+    risky_clauses: list[RiskyClauseFinding]
+    missing_clauses: list[MissingClauseFinding]
+    total_risks: int
+    total_missing: int
+    high_severity_count: int
+    medium_severity_count: int
+    low_severity_count: int
+    processed_at: str
+    
+    def summary(self) -> str:
+        """Generate human-readable summary of risk detection results."""
+        return (
+            f"Risk Detection Summary for Contract {self.contract_id}:\n"
+            f"  - Total Risky Clauses: {self.total_risks}\n"
+            f"  - Total Missing Clauses: {self.total_missing}\n"
+            f"  - Severity Breakdown:\n"
+            f"    * High: {self.high_severity_count}\n"
+            f"    * Medium: {self.medium_severity_count}\n"
+            f"    * Low: {self.low_severity_count}\n"
+            f"  - Processed At: {self.processed_at}"
+        )
