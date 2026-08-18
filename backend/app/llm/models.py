@@ -195,3 +195,81 @@ class RiskDetectionResult(BaseModel):
             f"    * Low: {self.low_severity_count}\n"
             f"  - Processed At: {self.processed_at}"
         )
+
+
+# ============================================================================
+# Explanation Generation Models (Stage 8)
+# ============================================================================
+
+class ExplanationResponse(BaseModel):
+    """
+    Base model for a single finding with explanation and citation.
+    
+    Attributes:
+        finding_id: UUID of the risk finding
+        finding_type: Type of finding (risky_clause or missing_clause)
+        clause_id: ID of the clause (INTEGER, for risky clauses only)
+        expected_clause_type: Type of expected clause (for missing clauses only)
+        reason: Reason for the finding
+        severity: Severity level (low, medium, high)
+        explanation: Plain-language explanation (2-4 sentences)
+        formatted_citation: Formatted citation from traced reference
+    """
+    finding_id: str
+    finding_type: Literal["risky_clause", "missing_clause"]
+    clause_id: int | None = None
+    expected_clause_type: str | None = None
+    reason: str
+    severity: str
+    explanation: str = Field(
+        description="Plain-language explanation (2-4 sentences)"
+    )
+    formatted_citation: str = Field(
+        description="Formatted legal citation from traced reference"
+    )
+
+
+class RiskyClauseExplanation(ExplanationResponse):
+    """
+    Risky clause with explanation and clause details.
+    
+    Attributes:
+        finding_type: Always "risky_clause"
+        clause_id: ID of the risky clause (INTEGER, required)
+        clause_text: Full text of the clause
+        clause_number: Clause identifier (e.g., "1.1", "para_5")
+    """
+    finding_type: Literal["risky_clause"] = "risky_clause"
+    clause_id: int
+    clause_text: str
+    clause_number: str
+
+
+class MissingClauseExplanation(ExplanationResponse):
+    """
+    Missing clause with explanation.
+    
+    Attributes:
+        finding_type: Always "missing_clause"
+        expected_clause_type: Type of clause that should be present (required)
+    """
+    finding_type: Literal["missing_clause"] = "missing_clause"
+    expected_clause_type: str
+
+
+class ContractExplanationsResponse(BaseModel):
+    """
+    Complete explanation response for a contract with all findings.
+    
+    Attributes:
+        contract_id: ID of the contract (INTEGER)
+        risky_clauses: List of risky clause explanations
+        missing_clauses: List of missing clause explanations
+        summary: Summary counts (total_risks, total_missing, severity breakdown)
+    """
+    contract_id: int
+    risky_clauses: list[RiskyClauseExplanation]
+    missing_clauses: list[MissingClauseExplanation]
+    summary: dict[str, int] = Field(
+        description="Counts: total_risks, total_missing, high_severity, medium_severity, low_severity"
+    )

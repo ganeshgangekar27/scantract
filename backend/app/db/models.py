@@ -76,6 +76,11 @@ class RiskFinding(Base):
     
     created_at = Column(DateTime(timezone=True), nullable=True)
     
+    # Stage 8: Explanation caching fields
+    explanation = Column(Text, nullable=True)
+    formatted_citation = Column(Text, nullable=True)
+    explanation_generated_at = Column(DateTime(timezone=True), nullable=True)
+    
     # Relationships
     contract = relationship("Contract", back_populates="risk_findings")
     clause = relationship("Clause", foreign_keys=[clause_id])
