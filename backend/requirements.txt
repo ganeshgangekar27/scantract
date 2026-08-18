@@ -36,6 +36,10 @@ pytest>=7.4.0
 pytest-asyncio>=0.21.0
 httpx>=0.25.0  # For FastAPI test client
 
+# PDF Generation
+weasyprint>=60.0  # HTML to PDF conversion for reports
+# Note: On Windows, weasyprint requires GTK libraries. See: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#windows
+
 # Utilities
 python-jose[cryptography]>=3.3.0  # JWT tokens (if adding auth later)
 passlib[bcrypt]>=1.7.4  # Password hashing (if adding auth later)

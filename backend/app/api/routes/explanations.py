@@ -10,20 +10,11 @@ import logging
 from ...llm.generate_explanations import get_contract_explanations, generate_all_explanations
 from ...llm.models import ContractExplanationsResponse
 from ...db.models import RiskFinding
+from ...db.database import get_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/contracts", tags=["explanations"])
-
-
-# Placeholder for get_db dependency - will be replaced with actual implementation
-async def get_db():
-    """
-    Placeholder database dependency.
-    
-    In production, this should be replaced with actual database session factory.
-    """
-    raise NotImplementedError("Database dependency not configured")
 
 
 @router.get("/{contract_id}/explanations")
