@@ -10,6 +10,7 @@ import logging
 
 from .api.routes.reports import router as reports_router
 from .api.routes.explanations import router as explanations_router
+from .api.routes.contracts import router as contracts_router
 
 # Configure logging
 logging.basicConfig(
@@ -40,8 +41,9 @@ app.add_middleware(
 # Include routers
 app.include_router(reports_router)
 app.include_router(explanations_router)
+app.include_router(contracts_router, prefix="/api/contracts", tags=["contracts"])
 
-logger.info("ScanTract API initialized with routes: reports, explanations")
+logger.info("ScanTract API initialized with routes: reports, explanations, contracts")
 
 
 @app.get("/")

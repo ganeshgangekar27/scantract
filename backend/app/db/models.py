@@ -19,6 +19,13 @@ class Contract(Base):
     filename = Column(String(255), nullable=False)
     uploaded_at = Column(DateTime(timezone=True), nullable=False)
     
+    # Document processing fields (Stage 2)
+    file_path = Column(String(512), nullable=True)
+    full_text = Column(Text, nullable=True)
+    processing_status = Column(String(20), nullable=False, server_default='uploaded')
+    error_message = Column(Text, nullable=True)
+    page_count = Column(Integer, nullable=True)
+    
     # Relationships
     clauses = relationship("Clause", back_populates="contract")
     risk_findings = relationship(
