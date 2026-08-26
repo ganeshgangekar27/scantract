@@ -1,1 +1,3 @@
-"""Integration tests for ScanTract."""
+"""
+Integration tests for ScanTract backend.
+"""
