@@ -51,13 +51,12 @@ async def assemble_contract_report(
     if not contract:
         raise ValueError("Contract not found")
     
-    if contract.processing_status != 'completed':
-        raise ValueError("Contract processing not complete")
+    if contract.pipeline_stage != 'completed':
+        raise ValueError(
+            f"Contract processing incomplete. Current stage: {contract.pipeline_stage or 'unknown'}"
+        )
     
-    # Step 2: Ensure all explanations are cached
-    await generate_all_explanations(contract_id, db)
-    
-    # Step 3: Fetch all clauses for the contract
+    # Step 2: Fetch all clauses for the contract
     result = await db.execute(
         select(Clause)
         .where(Clause.contract_id == contract_id)
@@ -65,20 +64,20 @@ async def assemble_contract_report(
     )
     clauses = result.scalars().all()
     
-    # Step 4: Fetch all risk findings with cached explanations
+    # Step 3: Fetch all risk findings with cached explanations
     result = await db.execute(
         select(RiskFinding)
         .where(RiskFinding.contract_id == contract_id)
     )
     findings = result.scalars().all()
     
-    # Step 5: Build risk map (clause_id -> list of findings)
+    # Step 4: Build risk map (clause_id -> list of findings)
     risk_map: Dict[int, List[RiskFinding]] = defaultdict(list)
     for finding in findings:
         if finding.clause_id is not None:
             risk_map[finding.clause_id].append(finding)
     
-    # Step 6: Build ClauseWithRisk objects
+    # Step 5: Build ClauseWithRisk objects
     all_clauses = []
     for clause in clauses:
         clause_risks = risk_map.get(clause.id, [])
@@ -103,7 +102,7 @@ async def assemble_contract_report(
             risk_reason=risk_reason
         ))
     
-    # Step 7: Build RiskyClauseReport and MissingClauseReport lists
+    # Step 6: Build RiskyClauseReport and MissingClauseReport lists
     risky_clauses = []
     missing_clauses = []
     
@@ -119,7 +118,7 @@ async def assemble_contract_report(
                     clause_text=clause.text,
                     severity=finding.severity,
                     reason=finding.reason,
-                    explanation=finding.explanation or "Explanation pending...",
+                    explanation=finding.explanation or "Explanation unavailable",
                     formatted_citation=finding.formatted_citation or ""
                 ))
         elif finding.finding_type == "missing_clause":
@@ -128,7 +127,7 @@ async def assemble_contract_report(
                 expected_clause_type=finding.expected_clause_type or "unknown",
                 severity=finding.severity,
                 reason=finding.reason,
-                explanation=finding.explanation or "Explanation pending...",
+                explanation=finding.explanation or "Explanation unavailable",
                 formatted_citation=finding.formatted_citation or ""
             ))
     
@@ -143,7 +142,7 @@ async def assemble_contract_report(
         key=lambda m: -severity_order.get(m.severity, 0)
     )
     
-    # Step 8: Compute RiskSummary
+    # Step 7: Compute RiskSummary
     high_count = sum(1 for f in findings if f.severity == "high")
     medium_count = sum(1 for f in findings if f.severity == "medium")
     low_count = sum(1 for f in findings if f.severity == "low")
@@ -168,7 +167,7 @@ async def assemble_contract_report(
         overall_risk_level=overall_risk
     )
     
-    # Step 9: Deduplicate legal references
+    # Step 8: Deduplicate legal references
     citation_counts: Dict[str, int] = defaultdict(int)
     for finding in findings:
         if finding.formatted_citation:
@@ -182,7 +181,7 @@ async def assemble_contract_report(
     # Sort by usage_count desc, then alphabetically
     legal_references.sort(key=lambda ref: (-ref.usage_count, ref.citation))
     
-    # Step 10: Return ContractReport
+    # Step 9: Return ContractReport
     return ContractReport(
         contract_id=contract.id,
         filename=contract.filename,

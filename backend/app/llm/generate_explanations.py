@@ -60,6 +60,15 @@ async def generate_explanation(
             explanation = re.sub(r'^[\{\s"]+', '', explanation)
             explanation = explanation.strip()
     
+    # Validate length - reject if too short or just braces/null
+    if not explanation or len(explanation.strip()) < 20 or explanation.strip() in ["{}", "null", "{\n\n}"]:
+        logger.warning(
+            f"Generated explanation is invalid (len={len(explanation.strip()) if explanation else 0}): "
+            f"'{explanation[:50] if explanation else 'None'}'"
+        )
+        # Don't cache invalid explanation, leave it NULL
+        return None
+    
     # Validate language compliance (no imperatives)
     if _contains_forbidden_language(explanation):
         logger.warning(
@@ -239,15 +248,20 @@ async def generate_all_explanations(
     
     # Generate explanations
     generated_count = 0
+    failed_count = 0
     for finding in findings:
         try:
-            await generate_explanation(finding, db)
-            generated_count += 1
+            explanation = await generate_explanation(finding, db)
+            if explanation:  # Only count if not None
+                generated_count += 1
+            else:
+                failed_count += 1
         except Exception as e:
             logger.error(f"Failed to generate explanation for finding {finding.id}: {e}")
+            failed_count += 1
             # Continue with other findings
     
-    logger.info(f"Generated {generated_count} new explanations")
+    logger.info(f"Generated {generated_count} new explanations, {failed_count} failed")
     
     return generated_count
 

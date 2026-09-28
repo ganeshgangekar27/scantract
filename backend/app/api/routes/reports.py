@@ -54,7 +54,12 @@ async def get_contract_report(
         }
         
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        error_msg = str(e)
+        # Check if it's an incomplete processing error
+        if "processing incomplete" in error_msg.lower():
+            raise HTTPException(status_code=409, detail=error_msg)
+        # Otherwise it's a 404
+        raise HTTPException(status_code=404, detail=error_msg)
     
     except Exception as e:
         logger.error(f"Failed to get report for contract {contract_id}: {e}")
