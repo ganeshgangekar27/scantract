@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 __pycache__/
 *.pyc
 .env
@@ -26,3 +26,9 @@ pipeline_run.txt
 backend_logs.txt
 backend_full_logs.txt
 llm_response_debug.txt
+api_response_contract_*.json
+
+# Test artifacts
+screenshots/
+frontend/test-results/
+frontend/playwright-report/
