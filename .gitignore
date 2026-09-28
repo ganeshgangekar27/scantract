@@ -2,7 +2,9 @@
 __pycache__/
 *.pyc
 .env
-.env.docker
+.env.*
+!.env.example
+!.env.docker.example
 .venv/
 dist/
 .DS_Store
@@ -16,9 +18,11 @@ diagnostic*.txt
 full_llm_response.txt
 response_tail.txt
 frontend_home.html
+frontend_diagnosis*.html
 test_report_output.json
 risk_detection_output.txt
 verification_run.txt
 pipeline_run.txt
 backend_logs.txt
+backend_full_logs.txt
 llm_response_debug.txt
