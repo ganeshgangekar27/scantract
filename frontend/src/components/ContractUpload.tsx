@@ -386,38 +386,40 @@ export const ContractUpload: React.FC<ContractUploadProps> = ({ onUploadComplete
           <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Contracts</h2>
           <div className="bg-white border border-gray-300 rounded-lg divide-y divide-gray-200">
             {contracts.map((contract) => (
-              <div
+              <a
                 key={contract.contract_id}
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                onClick={() => navigate(`/report/${contract.contract_id}`)}
+                href={`/report/${contract.contract_id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(`/report/${contract.contract_id}`);
+                }}
+                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors no-underline"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {contract.filename}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(contract.uploaded_at).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="ml-4 flex items-center gap-3">
-                    {getStatusBadge(contract.processing_status, contract.pipeline_stage)}
-                    <svg
-                      className="w-5 h-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {contract.filename}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(contract.uploaded_at).toLocaleString()}
+                  </p>
                 </div>
-              </div>
+                <div className="ml-4 flex items-center gap-3">
+                  {getStatusBadge(contract.processing_status, contract.pipeline_stage)}
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </div>
+              </a>
             ))}
           </div>
         </div>

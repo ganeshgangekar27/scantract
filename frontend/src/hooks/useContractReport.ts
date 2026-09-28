@@ -27,8 +27,14 @@ export function useContractReport(contractId: number): UseContractReportResult {
           throw new Error(`Failed to load report: ${response.statusText}`);
         }
         
-        const data = await response.json();
-        setReport(data);
+        const apiResponse = await response.json();
+        
+        // Unwrap API envelope {success, data, error}
+        if (!apiResponse.success || !apiResponse.data) {
+          throw new Error(apiResponse.error || 'Report data is missing');
+        }
+        
+        setReport(apiResponse.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
