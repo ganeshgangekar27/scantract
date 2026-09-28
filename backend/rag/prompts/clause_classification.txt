@@ -38,10 +38,74 @@ Clause {clause_index}:
 
 ## Output Format
 
-Respond with ONLY valid JSON, no preamble, no markdown code blocks. Use this exact structure:
+Respond with ONLY valid JSON, no preamble, no markdown code blocks.
+
+CRITICAL: The "clause_type" field MUST be one of these EXACT strings (character-for-character, do not abbreviate or paraphrase):
+- "payment_terms" (for rent, fees, deposits, payment schedules)
+- "termination" (for lease end, contract cancellation, notice periods)
+- "liability" (for damages, responsibility, negligence)
+- "confidentiality" (for non-disclosure, privacy, data protection)
+- "intellectual_property" (for copyrights, trademarks, work ownership)
+- "dispute_resolution" (for arbitration, mediation, jurisdiction)
+- "term_duration" (for contract length, lease period)
+- "renewal" (for auto-renewal, extension options)
+- "indemnification" (for hold-harmless, compensation clauses)
+- "warranties" (for guarantees, representations)
+- "force_majeure" (for acts of god, unforeseen circumstances)
+- "other" (if none of the above categories fit)
+
+## CRITICAL RULE: When to use "other"
+
+Use "other" for clauses whose PRIMARY legal function is administrative, procedural, or general/boilerplate, even if they MENTION topics from specific categories.
+
+Administrative/procedural clauses that belong in "other":
+- Governing law / choice of law (unless the clause is SPECIFICALLY about dispute resolution process)
+- Notice requirements / delivery methods (unless about termination notice specifically)
+- Amendment procedures
+- Entire agreement / integration clauses
+- Severability
+- Waiver provisions
+- Assignment / subletting restrictions
+- Quiet enjoyment rights
+- General compliance with laws
+- Parking, pets, utilities (unless the PRIMARY purpose is payment)
+
+IMPORTANT DISAMBIGUATION - Do not classify into a specific category just because the clause MENTIONS a related word:
+- A pet policy clause is NOT "termination" just because breach COULD lead to termination
+- A pet policy clause is NOT "payment_terms" just because it mentions a pet fee in passing
+- A governing law clause is NOT "dispute_resolution" unless it specifies arbitration/mediation PROCESS
+- A notice delivery clause is NOT "termination" unless it's specifically about termination notice requirements
+
+Ask yourself: "What is this clause's PRIMARY legal function?" If the answer is procedural/administrative, use "other".
+
+## Examples of CORRECT classification:
+
+PAYMENT/FEE EXAMPLES:
+- "Rent is $1500 monthly, due on the 1st" -> {{"clause_type": "payment_terms", ...}}
+- "Late fees of $50 apply after the 5th" -> {{"clause_type": "payment_terms", ...}}
+- "Security deposit equals two months' rent" -> {{"clause_type": "payment_terms", ...}}
+
+TERMINATION EXAMPLES:
+- "Either party may terminate with 30 days written notice" -> {{"clause_type": "termination", ...}}
+- "Lease terminates upon non-payment for 15 days" -> {{"clause_type": "termination", ...}}
+
+DISPUTE RESOLUTION EXAMPLES:
+- "Disputes shall be resolved through binding arbitration in accordance with AAA rules" -> {{"clause_type": "dispute_resolution", ...}}
+- "Any disputes will be mediated before litigation" -> {{"clause_type": "dispute_resolution", ...}}
+
+"OTHER" EXAMPLES (even though they mention related topics):
+- "This agreement is governed by the laws of California" -> {{"clause_type": "other", ...}} (NOT dispute_resolution - just states governing law)
+- "All notices must be sent via certified mail to the addresses in this document" -> {{"clause_type": "other", ...}} (NOT termination - general notice procedure)
+- "Tenant may keep one pet under 25 lbs, subject to $50 monthly pet fee" -> {{"clause_type": "other", ...}} (NOT payment_terms, NOT termination - PRIMARY function is pet policy)
+- "Tenant shall comply with all applicable federal, state, and local laws" -> {{"clause_type": "other", ...}} (NOT warranties - general compliance requirement)
+- "Tenant has the right to quiet enjoyment of the premises" -> {{"clause_type": "other", ...}} (NOT liability, NOT warranties - general tenant right)
+- "Any amendments must be in writing and signed by both parties" -> {{"clause_type": "other", ...}} (procedural requirement)
+- "This document constitutes the entire agreement between parties" -> {{"clause_type": "other", ...}} (integration clause)
+
+Use this exact JSON structure:
 
 {{
-  "clause_type": "payment|termination|maintenance|security_deposit|liability|indemnity|jurisdiction|confidentiality|deliverables|intellectual_property|other",
+  "clause_type": "<one of the 12 exact strings listed above>",
   "key_entities": ["entity1", "entity2"],
   "confidence": 0.0-1.0,
   "reasoning": "Brief explanation citing specific context that informed this classification"

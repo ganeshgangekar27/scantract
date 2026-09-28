@@ -1,9 +1,24 @@
-node_modules/
+﻿node_modules/
 __pycache__/
 *.pyc
 .env
+.env.docker
 .venv/
 dist/
 .DS_Store
 uploads/
 backend/uploads/
+
+# Debug/diagnostic files
+*.log
+debug*.txt
+diagnostic*.txt
+full_llm_response.txt
+response_tail.txt
+frontend_home.html
+test_report_output.json
+risk_detection_output.txt
+verification_run.txt
+pipeline_run.txt
+backend_logs.txt
+llm_response_debug.txt

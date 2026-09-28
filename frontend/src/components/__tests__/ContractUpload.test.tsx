@@ -66,7 +66,7 @@ describe('ContractUpload - TC-2: File Type Validation - Valid', () => {
 
 describe('ContractUpload - TC-3: File Type Validation - Invalid', () => {
   it('should reject TXT files with error message', async () => {
-    const { user } = setup();
+    setup();
     const file = new File(['content'], 'document.txt', { type: 'text/plain' });
     const input = screen.getByLabelText(/upload contract/i, { selector: 'input' }) as HTMLInputElement;
     
@@ -86,7 +86,7 @@ describe('ContractUpload - TC-3: File Type Validation - Invalid', () => {
   });
 
   it('should reject image files with error message', async () => {
-    const { user } = setup();
+    setup();
     const file = new File(['content'], 'image.jpg', { type: 'image/jpeg' });
     const input = screen.getByLabelText(/upload contract/i, { selector: 'input' }) as HTMLInputElement;
     

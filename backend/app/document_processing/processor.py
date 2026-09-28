@@ -12,6 +12,7 @@ from app.db.models import Contract, Clause
 from app.document_processing.extractor import extract_text_from_pdf, extract_text_from_docx
 from app.document_processing.normalizer import clean_and_normalize
 from app.document_processing.segmenter import segment_clauses
+from app.document_processing.orchestrator import run_full_pipeline
 
 
 logger = logging.getLogger(__name__)
@@ -96,11 +97,16 @@ async def process_contract(
             contract.full_text = normalized_text
             contract.page_count = page_count
             contract.processing_status = 'completed'
+            contract.pipeline_stage = 'segmented'
             contract.error_message = None
             
             await db.commit()
             
             logger.info(f"Successfully processed contract_id={contract_id}: {len(clauses)} clauses created")
+            
+            # Run full pipeline (Stage 4 -> 7 -> 8)
+            logger.info(f"Starting full pipeline orchestration for contract_id={contract_id}")
+            await run_full_pipeline(contract_id, db)
             
             # Optional: Clean up temp file (commented out for debugging)
             # os.remove(file_path)

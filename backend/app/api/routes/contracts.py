@@ -1,14 +1,15 @@
 """
-Contract upload endpoint.
+Contract upload and listing endpoints.
 """
 import os
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -26,6 +27,16 @@ class UploadResponse(BaseModel):
     size: int  # bytes
     upload_timestamp: datetime
     status: str  # 'uploaded'
+
+
+class ContractListItem(BaseModel):
+    """Response model for contract list item."""
+    contract_id: int
+    filename: str
+    uploaded_at: datetime
+    processing_status: str  # 'uploaded', 'processing', 'completed', 'failed'
+    pipeline_stage: Optional[str]  # 'extraction', 'segmentation', etc.
+    failed_stage: Optional[str]
 
 
 # Configuration from environment
@@ -140,3 +151,32 @@ async def upload_contract(
         upload_timestamp=contract.uploaded_at,
         status=contract.processing_status
     )
+
+
+@router.get("/list", response_model=List[ContractListItem])
+async def list_contracts(
+    db: AsyncSession = Depends(get_db)
+) -> List[ContractListItem]:
+    """
+    List all uploaded contracts with their processing status.
+    
+    Returns:
+        List of contracts with id, filename, upload date, and status
+    """
+    result = await db.execute(
+        select(Contract)
+        .order_by(Contract.uploaded_at.desc())
+    )
+    contracts = result.scalars().all()
+    
+    return [
+        ContractListItem(
+            contract_id=c.id,
+            filename=c.filename,
+            uploaded_at=c.uploaded_at,
+            processing_status=c.processing_status,
+            pipeline_stage=c.pipeline_stage,
+            failed_stage=c.failed_stage
+        )
+        for c in contracts
+    ]

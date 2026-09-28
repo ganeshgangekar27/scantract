@@ -3,10 +3,19 @@ LLM client dispatcher - routes to appropriate provider based on env var.
 """
 
 import os
+import logging
 from enum import Enum
 from app.llm.providers.claude import call_claude
 from app.llm.providers.openai import call_openai
 from app.llm.providers.gemini import call_gemini
+
+# Configure logging if not already configured
+# This ensures scripts that import llm_client get logging without needing main.py
+if not logging.getLogger().handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
 
 class LLMProvider(str, Enum):

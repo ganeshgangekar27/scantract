@@ -46,7 +46,7 @@ def _parse_classification_response(response_text: str) -> dict:
 
 def _add_emphatic_json_instruction(messages: list[dict]) -> list[dict]:
     """
-    Add emphatic instruction for strict JSON output.
+    Add emphatic instruction for strict JSON output with exact enum values.
     
     Args:
         messages: Original message list
@@ -56,7 +56,14 @@ def _add_emphatic_json_instruction(messages: list[dict]) -> list[dict]:
     """
     return messages + [{
         "role": "user",
-        "content": "Respond with ONLY valid JSON. No markdown, no explanation."
+        "content": (
+            "CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation.\n\n"
+            "The 'clause_type' field MUST be one of these EXACT strings:\n"
+            "payment_terms, termination, liability, confidentiality, intellectual_property, "
+            "dispute_resolution, term_duration, renewal, indemnification, warranties, "
+            "force_majeure, other\n\n"
+            "Do NOT abbreviate (e.g. 'payment' is WRONG, must be 'payment_terms')."
+        )
     }]
 
 
@@ -132,8 +139,12 @@ async def classify_clause(
                     f"Failed to classify clause {clause_index} after retry: {retry_error}"
                 ) from retry_error
     
+    except RuntimeError:
+        # Re-raise RuntimeError from retry logic
+        raise
+    
     except Exception as e:
-        # Return error in result for non-parse exceptions
+        # Return error in result for non-parse exceptions (but not RuntimeError)
         logger.error(f"Error classifying clause {clause_index}: {e}")
         return ClassificationResult(
             clause_index=clause_index,
@@ -191,33 +202,46 @@ async def classify_all_clauses(
         nonlocal successful_count, failed_count, total_tokens
         
         async with semaphore:
-            # Classify clause with EMPTY context (no retrieval until 5A/5B)
-            result = await classify_clause(
-                clause_text=clause.text,
-                clause_index=clause.clause_id,
-                contract_type=contract_type,
-                retrieved_context=""  # CRITICAL: explicit empty string
-            )
-            
-            if result.classification:
-                # Success - update clause fields
-                clause.clause_type = result.classification.clause_type
-                clause.key_entities = result.classification.key_entities
-                clause.confidence = result.classification.confidence
-                clause.classified_at = datetime.now(timezone.utc)
-                clause.classification_error = None
+            try:
+                # Classify clause with EMPTY context (no retrieval until 5A/5B)
+                result = await classify_clause(
+                    clause_text=clause.text,
+                    clause_index=clause.clause_id,
+                    contract_type=contract_type,
+                    retrieved_context=""  # CRITICAL: explicit empty string
+                )
                 
-                return (True, result.tokens_used)
-            else:
-                # Error - store error message
-                clause.classification_error = result.error
+                if result.classification:
+                    # Success - update clause fields
+                    clause.clause_type = result.classification.clause_type
+                    clause.key_entities = result.classification.key_entities
+                    clause.confidence = result.classification.confidence
+                    clause.classified_at = datetime.now(timezone.utc)
+                    clause.classification_error = None
+                    
+                    return (True, result.tokens_used)
+                else:
+                    # Error - store error message
+                    clause.classification_error = result.error
+                    clause.classified_at = datetime.now(timezone.utc)
+                    
+                    logger.error(
+                        f"Failed to classify clause {clause.clause_id}: {result.error}"
+                    )
+                    
+                    return (False, result.tokens_used)
+            
+            except RuntimeError as e:
+                # RuntimeError (e.g., rate limit, parse failure after retry)
+                # Store error and continue with other clauses
+                clause.classification_error = str(e)
                 clause.classified_at = datetime.now(timezone.utc)
                 
                 logger.error(
-                    f"Failed to classify clause {clause.clause_id}: {result.error}"
+                    f"RuntimeError classifying clause {clause.clause_id}: {e}"
                 )
                 
-                return (False, result.tokens_used)
+                return (False, 0)  # No tokens counted for failed calls
     
     # Run all classifications concurrently (limited by semaphore)
     results = await asyncio.gather(

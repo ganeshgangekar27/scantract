@@ -43,7 +43,22 @@ async def generate_explanation(
     messages = [{"role": "user", "content": prompt}]
     response_text, tokens_used = await call_llm(messages)
     
+    # Parse response: handle both JSON-wrapped and plain text formats
     explanation = response_text.strip()
+    
+    # Try to parse as JSON first
+    if explanation.startswith('{'):
+        try:
+            import json
+            parsed = json.loads(explanation)
+            if isinstance(parsed, dict) and 'explanation' in parsed:
+                explanation = parsed['explanation']
+        except json.JSONDecodeError:
+            # If JSON parsing fails, strip malformed JSON artifacts
+            # Remove leading braces and quotes that aren't part of prose
+            import re
+            explanation = re.sub(r'^[\{\s"]+', '', explanation)
+            explanation = explanation.strip()
     
     # Validate language compliance (no imperatives)
     if _contains_forbidden_language(explanation):
@@ -292,7 +307,7 @@ async def get_contract_explanations(
                 clause_number=clause.clause_id if clause else "",
                 reason=finding.reason,
                 severity=finding.severity,
-                explanation=finding.explanation or "Explanation pending...",
+                explanation=finding.explanation or "Explanation generation failed",
                 formatted_citation=citation
             ))
         else:
@@ -301,7 +316,7 @@ async def get_contract_explanations(
                 expected_clause_type=finding.expected_clause_type,
                 reason=finding.reason,
                 severity=finding.severity,
-                explanation=finding.explanation or "Explanation pending...",
+                explanation=finding.explanation or "Explanation generation failed",
                 formatted_citation=citation
             ))
     

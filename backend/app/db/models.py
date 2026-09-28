@@ -26,6 +26,10 @@ class Contract(Base):
     error_message = Column(Text, nullable=True)
     page_count = Column(Integer, nullable=True)
     
+    # Pipeline stage tracking (Stage 10)
+    pipeline_stage = Column(String(30), nullable=False, server_default='uploaded', index=True)
+    failed_stage = Column(String(30), nullable=True)
+    
     # Relationships
     clauses = relationship("Clause", back_populates="contract")
     risk_findings = relationship(

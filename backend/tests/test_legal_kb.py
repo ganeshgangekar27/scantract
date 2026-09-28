@@ -135,9 +135,15 @@ async def test_embed_text_single():
     """
     mock_embedding = [0.1] * 3072  # Valid 3072-dimensional embedding
     
-    mock_result = {'embedding': mock_embedding}
+    # Mock the new SDK's response structure
+    mock_response = MagicMock()
+    mock_response.embeddings = [MagicMock(values=mock_embedding)]
     
-    with patch('rag.embeddings.genai.embed_content', return_value=mock_result):
+    # Mock the client and its embed_content method
+    mock_client = MagicMock()
+    mock_client.models.embed_content.return_value = mock_response
+    
+    with patch('rag.embeddings.get_gemini_client', return_value=mock_client):
         result = await embed_text("Sample legal text for testing")
         
         assert isinstance(result, list), "Result should be a list"
@@ -154,9 +160,15 @@ async def test_embed_text_dimension_validation():
     """
     mock_embedding = [0.1] * 768  # Wrong dimension (768 instead of 3072)
     
-    mock_result = {'embedding': mock_embedding}
+    # Mock the new SDK's response structure with wrong dimension
+    mock_response = MagicMock()
+    mock_response.embeddings = [MagicMock(values=mock_embedding)]
     
-    with patch('rag.embeddings.genai.embed_content', return_value=mock_result):
+    # Mock the client
+    mock_client = MagicMock()
+    mock_client.models.embed_content.return_value = mock_response
+    
+    with patch('rag.embeddings.get_gemini_client', return_value=mock_client):
         with pytest.raises(ValueError) as exc_info:
             await embed_text("Sample text")
         

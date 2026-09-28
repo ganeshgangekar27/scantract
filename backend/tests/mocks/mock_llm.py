@@ -61,6 +61,7 @@ MOCK_VALID_RESPONSE = json.dumps({
     "reasoning": "Clear payment terms specifying due date"
 })
 
-MOCK_MALFORMED_JSON = "```json\n" + MOCK_VALID_RESPONSE + "\n```"
+# Malformed: has extra text before JSON that won't be stripped
+MOCK_MALFORMED_JSON = "Here is the classification:\n" + MOCK_VALID_RESPONSE
 
 MOCK_INVALID_JSON = "This is not JSON at all, just plain text explanation"

@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ContractUpload } from './components/ContractUpload';
-import { ReportPlaceholder } from './pages/ReportPlaceholder';
+import { ReportView } from './pages/ReportView';
 
 function App() {
   return (
@@ -19,7 +19,7 @@ function App() {
           <Routes>
             <Route path="/" element={<ContractUpload />} />
             <Route path="/upload" element={<Navigate to="/" replace />} />
-            <Route path="/report/:contractId" element={<ReportPlaceholder />} />
+            <Route path="/report/:contractId" element={<ReportView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

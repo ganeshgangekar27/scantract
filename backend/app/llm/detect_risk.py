@@ -428,13 +428,49 @@ def _parse_risk_response(content: str) -> dict:
     Raises:
         json.JSONDecodeError: If content is not valid JSON
     """
+    original_content = content  # Keep original for diagnostic logging
+    
     # Strip markdown code fences
     content = re.sub(r'^```json\s*', '', content, flags=re.MULTILINE)
     content = re.sub(r'\s*```$', '', content, flags=re.MULTILINE)
     content = content.strip()
     
+    # Log for debugging empty content after stripping
+    if not content:
+        logger.error(
+            f"🔍 DEBUG: Empty content after fence stripping.\n"
+            f"Original response (first 500 chars): {repr(original_content[:500])}\n"
+            f"Original length: {len(original_content)}"
+        )
+        raise json.JSONDecodeError("Empty response after markdown fence removal", "", 0)
+    
     # Parse JSON
-    return json.loads(content)
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as e:
+        # Save full response to file for analysis
+        import os
+        debug_file = f"/tmp/llm_response_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        try:
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write("=== ORIGINAL RESPONSE ===\n")
+                f.write(original_content)
+                f.write("\n\n=== AFTER STRIPPING ===\n")
+                f.write(content)
+            logger.error(f"🔍 Full response saved to: {debug_file}")
+        except Exception as write_err:
+            logger.error(f"Failed to write debug file: {write_err}")
+        
+        # Log the raw response on ANY JSON parse failure
+        logger.error(
+            f"🔍 DEBUG: JSON parse failed: {e}\n"
+            f"Original response (first 500 chars): {repr(original_content[:500])}\n"
+            f"Original response (LAST 500 chars): {repr(original_content[-500:])}\n"
+            f"After stripping (first 500 chars): {repr(content[:500])}\n"
+            f"After stripping (LAST 500 chars): {repr(content[-500:])}\n"
+            f"Original length: {len(original_content)}, Stripped length: {len(content)}"
+        )
+        raise
 
 
 async def _persist_findings(
@@ -468,6 +504,10 @@ async def _persist_findings(
     
     logger.info(f"Deleted existing findings for contract {contract_id}")
     
+    # Track statistics for logging
+    risky_persisted = 0
+    risky_skipped = 0
+    
     # Insert risky clause findings
     for risky in response.risky_clauses:
         clause_uuid = clause_map.get(risky.clause_id)
@@ -476,6 +516,7 @@ async def _persist_findings(
             logger.warning(
                 f"Clause ID '{risky.clause_id}' not found in contract {contract_id}, skipping"
             )
+            risky_skipped += 1
             continue
         
         finding = RiskFinding(
@@ -487,6 +528,7 @@ async def _persist_findings(
             severity=risky.severity.value
         )
         db.add(finding)
+        risky_persisted += 1
     
     # Insert missing clause findings
     for missing in response.missing_clauses:
@@ -503,8 +545,9 @@ async def _persist_findings(
     await db.commit()
     
     logger.info(
-        f"Persisted {len(response.risky_clauses)} risky + {len(response.missing_clauses)} missing "
-        f"findings for contract {contract_id}"
+        f"Persisted findings for contract {contract_id}: "
+        f"{risky_persisted} risky (skipped {risky_skipped}), "
+        f"{len(response.missing_clauses)} missing"
     )
 
 

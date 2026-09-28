@@ -1,6 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { UploadState, UploadResponse, APIResponse, ValidationResult } from '../types/upload.types';
+
+interface ContractListItem {
+  contract_id: number;
+  filename: string;
+  uploaded_at: string;
+  processing_status: string;
+  pipeline_stage: string | null;
+  failed_stage: string | null;
+}
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx'];
 const ALLOWED_MIME_TYPES = [
@@ -8,7 +17,6 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ];
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB in bytes
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 interface ContractUploadProps {
   onUploadComplete?: (contractId: number) => void;
@@ -23,9 +31,30 @@ export const ContractUpload: React.FC<ContractUploadProps> = ({ onUploadComplete
     error: null
   });
   
+  const [contracts, setContracts] = useState<ContractListItem[]>([]);
+  const [loadingContracts, setLoadingContracts] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  
+  // Fetch contracts list on mount
+  useEffect(() => {
+    const fetchContracts = async () => {
+      try {
+        const response = await fetch('/api/contracts/list');
+        if (response.ok) {
+          const data = await response.json();
+          setContracts(data);
+        }
+      } catch (error) {
+        console.error('Failed to load contracts:', error);
+      } finally {
+        setLoadingContracts(false);
+      }
+    };
+    
+    fetchContracts();
+  }, []);
   
   // Validation functions
   const validateFileType = (file: File): ValidationResult => {
@@ -109,7 +138,7 @@ export const ContractUpload: React.FC<ContractUploadProps> = ({ onUploadComplete
         reject(new Error('Network error during upload'));
       });
       
-      xhr.open('POST', `${API_BASE_URL}/api/contracts/upload`);
+      xhr.open('POST', '/api/contracts/upload');
       xhr.send(formData);
     });
   };
@@ -220,6 +249,19 @@ export const ContractUpload: React.FC<ContractUploadProps> = ({ onUploadComplete
     }
     
     return `${baseClasses} border-gray-300 bg-gray-50 border-dashed hover:border-blue-400 hover:bg-blue-50`;
+  };
+  
+  const getStatusBadge = (status: string, pipelineStage: string | null) => {
+    if (status === 'completed') {
+      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>;
+    }
+    if (status === 'failed') {
+      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Failed</span>;
+    }
+    if (status === 'processing' || pipelineStage) {
+      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Processing</span>;
+    }
+    return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">Uploaded</span>;
   };
   
   return (
@@ -335,6 +377,49 @@ export const ContractUpload: React.FC<ContractUploadProps> = ({ onUploadComplete
           >
             Retry
           </button>
+        </div>
+      )}
+      
+      {/* Existing contracts list */}
+      {!loadingContracts && contracts.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Contracts</h2>
+          <div className="bg-white border border-gray-300 rounded-lg divide-y divide-gray-200">
+            {contracts.map((contract) => (
+              <div
+                key={contract.contract_id}
+                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={() => navigate(`/report/${contract.contract_id}`)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {contract.filename}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(contract.uploaded_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="ml-4 flex items-center gap-3">
+                    {getStatusBadge(contract.processing_status, contract.pipeline_stage)}
+                    <svg
+                      className="w-5 h-5 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

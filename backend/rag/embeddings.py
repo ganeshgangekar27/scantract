@@ -12,48 +12,48 @@ Shared by:
 import os
 import asyncio
 import logging
-import warnings
 from typing import Optional
 
-# Suppress the FutureWarning about google.generativeai deprecation
-warnings.filterwarnings('ignore', message='.*google.generativeai.*deprecated.*')
-
-import google.generativeai as genai
+from google import genai
 
 logger = logging.getLogger(__name__)
 
-# Lazy singleton for Gemini configuration
-_gemini_configured: bool = False
+# Lazy singleton for Gemini client
+_gemini_client: Optional[genai.Client] = None
 
 
-def configure_gemini() -> None:
+def get_gemini_client() -> genai.Client:
     """
-    Configure Gemini API client singleton.
+    Get or create Gemini API client singleton.
     
     Reads GEMINI_API_KEY from environment variable.
+    
+    Returns:
+        Configured Gemini client
     
     Raises:
         ValueError: If GEMINI_API_KEY is not set
     """
-    global _gemini_configured
+    global _gemini_client
     
-    if not _gemini_configured:
+    if _gemini_client is None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError(
                 "GEMINI_API_KEY environment variable is required but not set. "
                 "Set it in your .env file or environment."
             )
-        genai.configure(api_key=api_key)
-        _gemini_configured = True
-        logger.info("Gemini API configured successfully")
+        _gemini_client = genai.Client(api_key=api_key)
+        logger.info("Gemini API client created successfully")
+    
+    return _gemini_client
 
 
 def embed_text_sync(text: str) -> list[float]:
     """
     Generate embedding using Gemini gemini-embedding-001 (3072 dimensions).
     
-    NOTE: Gemini's Python SDK does not support async, so this is synchronous.
+    NOTE: The new google-genai SDK uses synchronous calls for embeddings.
     The public embed_text() function wraps this in asyncio.to_thread().
     
     Args:
@@ -67,18 +67,18 @@ def embed_text_sync(text: str) -> list[float]:
         Exception: If Gemini API call fails
     """
     try:
-        configure_gemini()
+        client = get_gemini_client()
         
-        # Call Gemini embeddings API
-        # task_type='retrieval_document' optimizes for similarity search
-        result = genai.embed_content(
-            model="models/gemini-embedding-001",
-            content=text,
-            task_type="retrieval_document"
+        # Call Gemini embeddings API using new SDK
+        # Note: 'contents' parameter (not 'content'), model name without 'models/' prefix
+        result = client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=text
         )
         
-        # Extract embedding
-        embedding = result['embedding']
+        # Extract embedding from response
+        # New SDK returns EmbedContentResponse with embeddings list
+        embedding = result.embeddings[0].values
         
         # Validate dimension
         if len(embedding) != 3072:

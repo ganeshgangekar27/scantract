@@ -29,6 +29,102 @@ ClauseType = Literal[
     "other"
 ]
 
+# Fuzzy matching map for common abbreviations/variants
+CLAUSE_TYPE_FUZZY_MAP = {
+    # Payment variants
+    "payment": "payment_terms",
+    "payments": "payment_terms",
+    "rent": "payment_terms",
+    "fee": "payment_terms",
+    "fees": "payment_terms",
+    
+    # Intellectual property variants
+    "ip": "intellectual_property",
+    "intellectual": "intellectual_property",
+    "copyright": "intellectual_property",
+    
+    # Dispute resolution variants
+    "dispute": "dispute_resolution",
+    "arbitration": "dispute_resolution",
+    "jurisdiction": "dispute_resolution",
+    
+    # Term duration variants
+    "term": "term_duration",
+    "duration": "term_duration",
+    
+    # Liability variants
+    "liability": "liability",
+    "negligence": "liability",
+    
+    # Indemnification variants
+    "indemnity": "indemnification",
+    "indemnify": "indemnification",
+    
+    # Termination variants
+    "terminate": "termination",
+    "cancellation": "termination",
+    
+    # Confidentiality variants
+    "confidential": "confidentiality",
+    "nda": "confidentiality",
+    "non_disclosure": "confidentiality",
+    
+    # Warranty variants
+    "warranty": "warranties",
+    "guarantee": "warranties",
+    
+    # Force majeure variants
+    "force": "force_majeure",
+    "majeure": "force_majeure",
+    "act_of_god": "force_majeure",
+    
+    # Renewal variants
+    "renew": "renewal",
+    "extension": "renewal",
+}
+
+
+def normalize_clause_type(raw_value: str) -> tuple[str, bool]:
+    """
+    Normalize a clause_type value to a valid enum, with fuzzy matching fallback.
+    
+    Args:
+        raw_value: The raw clause_type string from LLM response
+    
+    Returns:
+        Tuple of (normalized_value, was_fuzzy_matched)
+        - normalized_value: A valid ClauseType enum value
+        - was_fuzzy_matched: True if fuzzy matching or fallback was used
+    
+    Logic:
+        1. Try exact match (case-sensitive) - return (value, False)
+        2. Try fuzzy mapping (lowercase lookup) - return (mapped, True) + log
+        3. Fallback to "other" - return ("other", True) + log warning
+    """
+    # Try exact match first
+    valid_types = [
+        "payment_terms", "termination", "liability", "confidentiality",
+        "intellectual_property", "dispute_resolution", "term_duration",
+        "renewal", "indemnification", "warranties", "force_majeure", "other"
+    ]
+    
+    if raw_value in valid_types:
+        return (raw_value, False)  # Exact match, no fuzzy matching needed
+    
+    # Try fuzzy matching
+    raw_lower = raw_value.lower().strip()
+    if raw_lower in CLAUSE_TYPE_FUZZY_MAP:
+        mapped = CLAUSE_TYPE_FUZZY_MAP[raw_lower]
+        logger.info(f"Fuzzy matched clause_type '{raw_value}' -> '{mapped}'")
+        return (mapped, True)
+    
+    # Fallback to "other"
+    logger.warning(
+        f"Could not match clause_type '{raw_value}' to any valid enum. "
+        f"Falling back to 'other'. Consider adding to fuzzy map if this is a common variant."
+    )
+    return ("other", True)
+
 
 class ClauseClassification(BaseModel):
     """
@@ -44,6 +140,18 @@ class ClauseClassification(BaseModel):
     key_entities: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str = ""
+    
+    @field_validator("clause_type", mode="before")
+    @classmethod
+    def normalize_clause_type_field(cls, v: str) -> str:
+        """
+        Normalize clause_type using fuzzy matching before validation.
+        
+        This allows the LLM to return common abbreviations like "payment" or "ip"
+        and have them automatically mapped to valid enum values.
+        """
+        normalized, was_fuzzy = normalize_clause_type(v)
+        return normalized
     
     @field_validator("key_entities")
     @classmethod

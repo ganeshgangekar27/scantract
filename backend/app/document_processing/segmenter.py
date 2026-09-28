@@ -52,7 +52,9 @@ def segment_clauses(text: str) -> List[Dict[str, any]]:
         logger.info(f"Detected {len(matches)} numbered clauses")
         
         for i, match in enumerate(matches):
-            clause_number = match.group(1).strip()
+            # Strip trailing period from clause_number for clean identifiers
+            # (matches "1." -> "1", "1.1" -> "1.1", "(a)" -> "(a)")
+            clause_number = match.group(1).strip().rstrip('.')
             start_pos = match.end()
             
             # Text extends until next clause or end of document

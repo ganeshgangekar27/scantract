@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector extension
+  db:
+    image: ankane/pgvector:latest
+    container_name: scantract-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpass}
+      POSTGRES_DB: scantract
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scantract-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Database connection
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD:-devpass}@db:5432/scantract
+      
+      # LLM Provider (choose one: openai, claude, gemini)
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      
+      # API Keys
+      # REQUIRED: GEMINI_API_KEY (for embeddings, regardless of LLM_PROVIDER)
+      # REQUIRED: At least one LLM key matching LLM_PROVIDER
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      
+      # LLM Model Configuration
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-3.5-turbo}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-3-haiku-20240307}
+      GEMINI_MODEL: ${GEMINI_MODEL:-models/gemini-3.7-flash}
+      
+      # Embedding Configuration
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-models/gemini-embedding-001}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-3072}
+      
+      # Upload Configuration
+      UPLOAD_TEMP_DIR: /app/uploads/temp
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-15}
+      
+      # RAG Configuration
+      MAX_CONTEXT_TOKENS: ${MAX_CONTEXT_TOKENS:-4000}
+      DEDUPLICATION_THRESHOLD: ${DEDUPLICATION_THRESHOLD:-0.95}
+      MIN_CHUNKS_PER_SOURCE: ${MIN_CHUNKS_PER_SOURCE:-1}
+      
+      # LLM Concurrency
+      LLM_CONCURRENCY_LIMIT: ${LLM_CONCURRENCY_LIMIT:-5}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-3}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+    command: >
+      sh -c "
+        echo 'Running database migrations...' &&
+        alembic upgrade head &&
+        echo 'Seeding legal knowledge base...' &&
+        python db/legal_kb/seed_legal_kb.py &&
+        echo 'Seeding reference corpus...' &&
+        python db/reference_corpus/seed_reference_corpus.py &&
+        echo 'Starting FastAPI server...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
+
+  # React frontend served by nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: scantract-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:

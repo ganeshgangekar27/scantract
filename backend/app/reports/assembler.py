@@ -51,7 +51,7 @@ async def assemble_contract_report(
     if not contract:
         raise ValueError("Contract not found")
     
-    if contract.processing_status != 'complete':
+    if contract.processing_status != 'completed':
         raise ValueError("Contract processing not complete")
     
     # Step 2: Ensure all explanations are cached
@@ -186,7 +186,7 @@ async def assemble_contract_report(
     return ContractReport(
         contract_id=contract.id,
         filename=contract.filename,
-        upload_date=contract.upload_date,
+        upload_date=contract.uploaded_at,
         all_clauses=all_clauses,
         risky_clauses=risky_clauses,
         missing_clauses=missing_clauses,

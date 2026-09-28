@@ -340,3 +340,78 @@ async def test_token_tracking():
 
 if __name__ == "__main__":
     print("Run with: pytest test_classify_clauses.py -v")
+
+
+# TC-13: RuntimeError During Batch - One Clause Fails, Others Succeed
+@pytest.mark.asyncio
+async def test_runtime_error_in_batch_partial_success():
+    """TC-13: Verify RuntimeError from one clause doesn't kill the whole batch."""
+    from app.llm.classify_clauses import classify_all_clauses
+    from app.db.models import Clause
+    
+    mock_db = MagicMock()
+    mock_db.execute = AsyncMock()
+    mock_db.commit = AsyncMock()
+    
+    # Create 3 mock clauses with explicit attributes
+    clauses = []
+    for i in range(1, 4):
+        clause = MagicMock(spec=Clause)
+        clause.text = f"Clause {i}"
+        clause.clause_id = str(i)
+        clause.position = i
+        clause.clause_type = None
+        clause.key_entities = None
+        clause.confidence = None
+        clause.classified_at = None
+        clause.classification_error = None
+        clauses.append(clause)
+    
+    mock_result = MagicMock()
+    mock_result.scalars().all.return_value = clauses
+    mock_db.execute.return_value = mock_result
+    
+    call_count = 0
+    
+    async def call_with_rate_limit_on_second(messages):
+        """Simulate rate limit on second call only."""
+        nonlocal call_count
+        call_count += 1
+        
+        if call_count == 2:
+            # Simulate rate limit error (becomes RuntimeError in classify_clause)
+            raise RuntimeError("Gemini API rate limit exceeded: 429 Resource Exhausted")
+        
+        # Other calls succeed
+        return (MOCK_VALID_RESPONSE, 150)
+    
+    with patch('app.llm.classify_clauses.call_llm', new=call_with_rate_limit_on_second):
+        result = await classify_all_clauses(
+            contract_id=1,
+            contract_type="rental",
+            db=mock_db
+        )
+        
+        # Should process all 3 clauses
+        assert result["total"] == 3
+        assert result["successful"] == 2  # First and third succeed
+        assert result["failed"] == 1      # Second fails with RuntimeError
+        
+        # First clause should be classified
+        assert clauses[0].clause_type == "payment_terms"
+        assert clauses[0].classification_error is None
+        
+        # Second clause should have error recorded
+        assert clauses[1].classification_error is not None
+        assert "rate limit" in clauses[1].classification_error.lower()
+        assert clauses[1].clause_type is None  # Not classified
+        
+        # Third clause should also be classified
+        assert clauses[2].clause_type == "payment_terms"
+        assert clauses[2].classification_error is None
+        
+        # Verify commit was called
+        assert mock_db.commit.called
+        
+        # Verify all 3 calls were made (batch didn't abort early)
+        assert call_count == 3
