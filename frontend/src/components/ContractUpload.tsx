@@ -251,17 +251,31 @@ export const ContractUpload: React.FC<ContractUploadProps> = ({ onUploadComplete
     return `${baseClasses} border-gray-300 bg-gray-50 border-dashed hover:border-blue-400 hover:bg-blue-50`;
   };
   
-  const getStatusBadge = (status: string, pipelineStage: string | null) => {
-    if (status === 'completed') {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>;
+  const getStatusBadge = (pipelineStage: string | null, failedStage: string | null) => {
+    // Map pipeline stages to readable labels
+    const stageLabels: Record<string, string> = {
+      'uploaded': 'Uploaded',
+      'classifying': 'Classifying clauses',
+      'classified': 'Classified',
+      'detecting_risks': 'Detecting risks',
+      'risks_detected': 'Risks detected',
+      'generating_explanations': 'Generating explanations',
+      'explanations_generated': 'Explanations generated',
+      'completed': 'Completed',
+      'failed': failedStage ? `Failed at ${failedStage}` : 'Failed',
+    };
+    
+    const label = pipelineStage ? (stageLabels[pipelineStage] || pipelineStage) : 'Unknown';
+    
+    // Color by stage
+    if (pipelineStage === 'completed') {
+      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">{label}</span>;
     }
-    if (status === 'failed') {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Failed</span>;
+    if (pipelineStage === 'failed') {
+      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">{label}</span>;
     }
-    if (status === 'processing' || pipelineStage) {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Processing</span>;
-    }
-    return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">Uploaded</span>;
+    // In-progress stages
+    return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">{label}</span>;
   };
   
   return (
@@ -385,42 +399,54 @@ export const ContractUpload: React.FC<ContractUploadProps> = ({ onUploadComplete
         <div className="mt-12">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Contracts</h2>
           <div className="bg-white border border-gray-300 rounded-lg divide-y divide-gray-200">
-            {contracts.map((contract) => (
-              <a
-                key={contract.contract_id}
-                href={`/report/${contract.contract_id}`}
-                onClick={(e) => {
+            {contracts.map((contract) => {
+              const isCompleted = contract.pipeline_stage === 'completed';
+              const ContractItem = isCompleted ? 'a' : 'div';
+              const itemProps = isCompleted ? {
+                href: `/report/${contract.contract_id}`,
+                onClick: (e: React.MouseEvent) => {
                   e.preventDefault();
                   navigate(`/report/${contract.contract_id}`);
-                }}
-                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors no-underline"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {contract.filename}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(contract.uploaded_at).toLocaleString()}
-                  </p>
-                </div>
-                <div className="ml-4 flex items-center gap-3">
-                  {getStatusBadge(contract.processing_status, contract.pipeline_stage)}
-                  <svg
-                    className="w-5 h-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-              </a>
-            ))}
+                }
+              } : {};
+              
+              return (
+                <ContractItem
+                  key={contract.contract_id}
+                  {...itemProps}
+                  className={`flex items-center justify-between p-4 transition-colors ${
+                    isCompleted ? 'hover:bg-gray-50 no-underline cursor-pointer' : 'cursor-default'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {contract.filename}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(contract.uploaded_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="ml-4 flex items-center gap-3">
+                    {getStatusBadge(contract.pipeline_stage, contract.failed_stage)}
+                    {isCompleted && (
+                      <svg
+                        className="w-5 h-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                </ContractItem>
+              );
+            })}
           </div>
         </div>
       )}

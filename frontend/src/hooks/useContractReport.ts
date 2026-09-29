@@ -24,6 +24,11 @@ export function useContractReport(contractId: number): UseContractReportResult {
           if (response.status === 404) {
             throw new Error('Contract not found');
           }
+          if (response.status === 409) {
+            // Parse 409 body for readable message
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Contract processing incomplete');
+          }
           throw new Error(`Failed to load report: ${response.statusText}`);
         }
         

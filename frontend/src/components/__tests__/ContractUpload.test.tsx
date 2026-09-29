@@ -27,6 +27,17 @@ function setup() {
   return { user, ...view };
 }
 
+// Mock fetch for contract list
+beforeEach(() => {
+  // Mock fetch to return empty contract list
+  vi.mocked(fetch).mockResolvedValue({
+    ok: true,
+    json: async () => [],
+    status: 200,
+    statusText: 'OK',
+  } as Response);
+});
+
 describe('ContractUpload - TC-1: Render', () => {
   it('should render drop zone with instructions', () => {
     render(
