@@ -32,3 +32,6 @@ api_response_contract_*.json
 screenshots/
 frontend/test-results/
 frontend/playwright-report/
+
+# Database backups
+backups/
