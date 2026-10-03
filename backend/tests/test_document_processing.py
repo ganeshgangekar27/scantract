@@ -163,9 +163,9 @@ def test_segment_numbered_clauses():
     assert len(clauses) == 3
     
     # Verify clause numbers
-    assert clauses[0]['clause_number'] == '1.'
-    assert clauses[1]['clause_number'] == '2.'
-    assert clauses[2]['clause_number'] == '3.'
+    assert clauses[0]['clause_number'] == '1'
+    assert clauses[1]['clause_number'] == '2'
+    assert clauses[2]['clause_number'] == '3'
     
     # Verify positions
     assert clauses[0]['position'] == 0
@@ -237,8 +237,8 @@ def test_segment_filters_empty_clauses():
     
     # Should only get 2 clauses (clause 2 filtered out)
     assert len(clauses) == 2
-    assert clauses[0]['clause_number'] == '1.'
-    assert clauses[1]['clause_number'] == '3.'
+    assert clauses[0]['clause_number'] == '1'
+    assert clauses[1]['clause_number'] == '3'
     # Verify "Short." was filtered
     assert not any('Short' in c['clause_text'] for c in clauses)
 
@@ -255,6 +255,26 @@ def test_segment_mixed_content():
     
     # Should detect all patterns
     assert len(clauses) == 3
-    assert clauses[0]['clause_number'] == '1.'
+    assert clauses[0]['clause_number'] == '1'
     assert clauses[1]['clause_number'] == '(a)'
-    assert clauses[2]['clause_number'] == '2.'
+    assert clauses[2]['clause_number'] == '2'
+
+
+@pytest.mark.parametrize("heading,expected_number", [
+    ("1.", "1"),
+    ("2.", "2"),
+    ("1.1.", "1.1"),
+])
+def test_clause_number_strips_trailing_dot(heading, expected_number):
+    """Regression: clause numbers should never end with '.'. 
+    
+    Bug fix in commit 5f64f92 added .rstrip('.') to remove trailing dots from parsed numbers.
+    This test pins that behavior: inputs '1.', '2.', '1.1.' should return '1', '2', '1.1'.
+    """
+    input_text = f"{heading} This is a clause with sufficient content for the segmenter to accept it."
+    
+    clauses = segment_clauses(input_text)
+    
+    assert len(clauses) == 1
+    assert clauses[0]['clause_number'] == expected_number
+    assert not clauses[0]['clause_number'].endswith('.')

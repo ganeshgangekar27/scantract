@@ -35,6 +35,7 @@ def mock_contract():
     contract.filename = "lease_agreement.pdf"
     contract.upload_date = datetime(2024, 8, 15, 10, 30, 0)
     contract.processing_status = "complete"
+    contract.pipeline_stage = "completed"
     return contract
 
 
@@ -138,8 +139,8 @@ async def test_complete_data_assembly(mock_db, mock_contract):
         assert report.risky_clauses[1].severity == "medium"
         assert report.risky_clauses[2].severity == "low"
         
-        # Assert generate_all_explanations was called
-        mock_gen.assert_called_once_with(1, mock_db)
+        # Assert generate_all_explanations was NOT called (removed in 52e418e)
+        mock_gen.assert_not_called()
 
 
 # ============================================================================
@@ -196,13 +197,13 @@ async def test_missing_explanations_handled(mock_db, mock_contract):
         
         report = await assemble_contract_report(1, mock_db)
         
-        # Assert generate_all_explanations was called
-        mock_gen.assert_called_once_with(1, mock_db)
+        # Assert generate_all_explanations was NOT called (removed in 52e418e)
+        mock_gen.assert_not_called()
         
         # Assert report assembled successfully
         assert len(report.risky_clauses) == 1
-        # Should show pending message if still None after generation
-        assert "Explanation pending" in report.risky_clauses[0].explanation or report.risky_clauses[0].explanation == ""
+        # Should show "Explanation unavailable" for None explanations
+        assert report.risky_clauses[0].explanation == "Explanation unavailable"
 
 
 # ============================================================================
@@ -295,14 +296,18 @@ async def test_processing_incomplete(mock_db):
     contract = MagicMock(spec=Contract)
     contract.id = 1
     contract.processing_status = "processing"
+    contract.pipeline_stage = "detecting_risks"
     
     mock_result_contract = MagicMock()
     mock_result_contract.scalar_one_or_none.return_value = contract
     
     mock_db.execute.return_value = mock_result_contract
     
-    with pytest.raises(ValueError, match="not complete"):
+    with pytest.raises(ValueError, match="incomplete") as excinfo:
         await assemble_contract_report(1, mock_db)
+    
+    # Verify the stage name appears in the error message
+    assert "detecting_risks" in str(excinfo.value)
 
 
 # ============================================================================

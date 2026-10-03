@@ -28,10 +28,11 @@ from db.reference_corpus.seed_reference_corpus import (
 )
 from db.reference_corpus.search import search_reference_corpus
 from rag.embeddings import embed_text
+from tests.db_config import get_test_database_url
 
 
 # Test database URL
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:devpass@localhost:5432/scantract"
+TEST_DATABASE_URL = get_test_database_url()
 
 
 @pytest_asyncio.fixture

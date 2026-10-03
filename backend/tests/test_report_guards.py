@@ -21,8 +21,9 @@ sys.path.insert(0, str(backend_path))
 
 from app.db.models import Contract
 from app.reports.assembler import assemble_contract_report
+from tests.db_config import get_test_database_url
 
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:devpass@localhost:5432/scantract"
+TEST_DATABASE_URL = get_test_database_url()
 
 
 @pytest_asyncio.fixture

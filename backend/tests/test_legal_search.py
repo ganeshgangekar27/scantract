@@ -19,10 +19,11 @@ sys.path.insert(0, str(backend_path))
 
 from db.legal_kb.models import LegalRule, LegalRuleSearchResult
 from db.legal_kb.search import search_legal_rules
+from tests.db_config import get_test_database_url
 
 
 # Test database URL (uses main database for now - in production, use separate test DB)
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:devpass@localhost:5432/scantract"
+TEST_DATABASE_URL = get_test_database_url()
 
 
 @pytest_asyncio.fixture

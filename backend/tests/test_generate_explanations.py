@@ -480,7 +480,7 @@ async def test_api_endpoint_no_auto_generate(mock_db, mock_risky_finding, mock_c
     TC-13: No generation when auto_generate=False.
     
     Verifies:
-    - Returns "Explanation pending..." for missing
+    - Returns "Explanation generation failed" for missing
     - No LLM calls
     """
     # Finding without explanation
@@ -508,7 +508,7 @@ async def test_api_endpoint_no_auto_generate(mock_db, mock_risky_finding, mock_c
         mock_llm.assert_not_called()
         
         # Assert pending message
-        assert response.risky_clauses[0].explanation == "Explanation pending..."
+        assert response.risky_clauses[0].explanation == "Explanation generation failed"
 
 
 # ============================================================================
