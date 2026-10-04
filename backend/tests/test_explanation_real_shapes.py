@@ -18,6 +18,14 @@ from app.llm.generate_explanations import parse_explanation, validate_explanatio
     ('{"key": "This has arbitrary key"}', "This has arbitrary key", True),
     ('}Leading brace text that is long enough to pass validation', "Leading brace text that is long enough to pass validation", True),
     
+    # Text-in-the-KEY shapes (from 1a561bc0, 2a712cfb, 6646bd1c)
+    ('{". This clause differs from standard practice because": []}', "This clause differs from standard practice because", True),
+    ('{": This text is in the key with colon prefix"}', "This text is in the key with colon prefix", True),
+    ('{". Another text in key here": ""}', "Another text in key here", True),
+    
+    # Newline inside wrapper
+    ('{"First sentence.\\nSecond sentence of at least twenty characters."}', "First sentence.\\nSecond sentence of at least twenty characters.", True),
+    
     # Edge cases
     ('{"": ""}', None, False),  # Empty value
     ('{}', None, False),  # Empty object
@@ -71,15 +79,16 @@ def test_real_fixtures_invariant():
         
         checked_count += 1
         finding_id = item['finding_id']
+        stored = item['explanation']
         
         # Check if this is the 141c2535 record (44666 chars, malformed)
         if finding_id.startswith('141c2535'):
             found_141c2535 = True
-            parsed_141c = parse_explanation(item['explanation'])
+            parsed_141c = parse_explanation(stored)
             # This specific record should be REJECTED due to length > 2000
             assert not validate_explanation(parsed_141c), f"Record 141c2535 should be rejected but was accepted"
         
-        parsed = parse_explanation(item['explanation'])
+        parsed = parse_explanation(stored)
         if validate_explanation(parsed):
             # If accepted, must satisfy invariant
             assert 20 <= len(parsed) <= 2000, f"Length {len(parsed)} out of range"
@@ -89,6 +98,32 @@ def test_real_fixtures_invariant():
             assert not parsed.startswith('"'), f"Starts with quote: {parsed[:60]}"
             assert not parsed.startswith(':'), f"Starts with colon: {parsed[:60]}"
             assert not parsed.startswith('. '), f"Starts with '. ': {parsed[:60]}"
+            
+            # Substring invariant: parsed must be a substring of stored,
+            # OR equal to a JSON key or value (after stripping)
+            is_substring = parsed in stored
+            
+            # Try parsing as JSON to check if parsed equals a key or value
+            is_json_part = False
+            try:
+                obj = json.loads(stored)
+                if isinstance(obj, dict):
+                    for k, v in obj.items():
+                        # Check value
+                        if isinstance(v, str) and parsed == v:
+                            is_json_part = True
+                            break
+                        # Check key after stripping leading punctuation
+                        if isinstance(k, str):
+                            import re
+                            k_stripped = re.sub(r'^["\.\s:]+', '', k).strip()
+                            if parsed == k_stripped:
+                                is_json_part = True
+                                break
+            except:
+                pass  # Not valid JSON, that's ok
+            
+            assert is_substring or is_json_part, f"Parsed not substring or JSON part for {finding_id}: stored={stored[:60]}, parsed={parsed[:60]}"
     
     # Assert we checked enough records
     assert checked_count >= 30, f"Expected at least 30 non-null records, got {checked_count}"

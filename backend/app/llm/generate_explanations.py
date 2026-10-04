@@ -26,6 +26,7 @@ def parse_explanation(response_text: str) -> str | None:
     - Plain text responses
     - JSON-wrapped responses with various key structures
     - Malformed JSON with trailing/leading fragments
+    - Text in JSON keys (when value is empty/invalid)
     
     Args:
         response_text: Raw LLM response
@@ -47,19 +48,35 @@ def parse_explanation(response_text: str) -> str | None:
         try:
             parsed = json.loads(explanation)
             if isinstance(parsed, dict):
-                # Extract text from ANY string value in dict
-                # Priority: 'explanation' key, then first non-empty string value
+                # Extract text from ANY string value or key in dict
+                # Priority: 'explanation' key, then first non-empty string value, then first non-empty key
                 if 'explanation' in parsed and isinstance(parsed['explanation'], str):
                     explanation = parsed['explanation'].strip()
                 else:
                     # Find first non-empty string value (skipping empty or whitespace-only)
+                    found = False
                     for value in parsed.values():
-                        if isinstance(value, str) and value.strip():
-                            explanation = value.strip()
-                            break
-                    else:
-                        # No valid string found
-                        logger.warning(f"JSON dict has no valid string values: {list(parsed.keys())}")
+                        if isinstance(value, str):
+                            value_stripped = value.strip()
+                            if value_stripped:  # Must have content after stripping
+                                explanation = value_stripped
+                                found = True
+                                break
+                    
+                    # If no valid value found, try keys
+                    if not found:
+                        for key in parsed.keys():
+                            if isinstance(key, str):
+                                # Strip leading punctuation from key: ". ", ": ", etc.
+                                key_stripped = re.sub(r'^["\.\s:]+', '', key).strip()
+                                if key_stripped:  # Must have content after stripping
+                                    explanation = key_stripped
+                                    found = True
+                                    break
+                    
+                    if not found:
+                        # No valid string found in values or keys
+                        logger.warning(f"JSON dict has no valid string values or keys: {list(parsed.keys())}")
                         return None
         except json.JSONDecodeError:
             # If JSON parsing fails, strip malformed JSON artifacts
@@ -285,7 +302,10 @@ async def generate_all_explanations(
     db: AsyncSession
 ) -> int:
     """
-    Generate explanations for all findings without cached explanations.
+    Generate explanations for all findings without valid explanations.
+    
+    Treats findings with invalid stored explanations (fail validate_explanation)
+    as missing and regenerates them.
     
     Args:
         contract_id: Contract ID (INTEGER)
@@ -293,25 +313,43 @@ async def generate_all_explanations(
     
     Returns:
         Count of newly generated explanations
+        
+    Raises:
+        RuntimeError: If any findings lack valid explanations after generation
     """
-    # Fetch findings without explanations
+    # Fetch ALL findings for this contract
     result = await db.execute(
         select(RiskFinding)
         .where(RiskFinding.contract_id == contract_id)
-        .where(RiskFinding.explanation.is_(None))
     )
     findings = result.scalars().all()
     
     if not findings:
-        logger.info(f"All explanations already cached for contract {contract_id}")
+        logger.info(f"No findings for contract {contract_id}")
         return 0
     
-    logger.info(f"Generating {len(findings)} explanations for contract {contract_id}")
+    # Identify findings needing explanation generation
+    findings_to_generate = []
+    for finding in findings:
+        if finding.explanation is None:
+            findings_to_generate.append(finding)
+        else:
+            # Validate stored explanation
+            parsed = parse_explanation(finding.explanation)
+            if not validate_explanation(parsed):
+                logger.warning(f"Finding {finding.id} has invalid stored explanation, will regenerate")
+                findings_to_generate.append(finding)
+    
+    if not findings_to_generate:
+        logger.info(f"All explanations already valid for contract {contract_id}")
+        return 0
+    
+    logger.info(f"Generating {len(findings_to_generate)} explanations for contract {contract_id}")
     
     # Generate explanations
     generated_count = 0
     failed_count = 0
-    for finding in findings:
+    for finding in findings_to_generate:
         try:
             explanation = await generate_explanation(finding, db)
             if explanation:  # Only count if not None
@@ -324,6 +362,10 @@ async def generate_all_explanations(
             # Continue with other findings
     
     logger.info(f"Generated {generated_count} new explanations, {failed_count} failed")
+    
+    # Check if any findings still lack valid explanations
+    if failed_count > 0:
+        raise RuntimeError(f"{failed_count} findings lack valid explanations")
     
     return generated_count
 
