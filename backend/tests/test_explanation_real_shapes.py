@@ -52,15 +52,32 @@ def test_explanation_parser_shapes(stored, expected_clean, should_accept):
 
 
 import json
+from pathlib import Path
+
 
 def test_real_fixtures_invariant():
     """Test all real fixture explanations satisfy invariant."""
-    with open('tests/fixtures/real_explanations.json', 'r') as f:
+    # Locate fixture relative to this test file
+    fixture_path = Path(__file__).parent / "fixtures" / "real_explanations.json"
+    with open(fixture_path, 'r') as f:
         data = json.load(f)
+    
+    checked_count = 0
+    found_141c2535 = False
     
     for item in data:
         if item['explanation'] is None:
             continue  # NULL explanations are fine
+        
+        checked_count += 1
+        finding_id = item['finding_id']
+        
+        # Check if this is the 141c2535 record (44666 chars, malformed)
+        if finding_id.startswith('141c2535'):
+            found_141c2535 = True
+            parsed_141c = parse_explanation(item['explanation'])
+            # This specific record should be REJECTED due to length > 2000
+            assert not validate_explanation(parsed_141c), f"Record 141c2535 should be rejected but was accepted"
         
         parsed = parse_explanation(item['explanation'])
         if validate_explanation(parsed):
@@ -72,3 +89,7 @@ def test_real_fixtures_invariant():
             assert not parsed.startswith('"'), f"Starts with quote: {parsed[:60]}"
             assert not parsed.startswith(':'), f"Starts with colon: {parsed[:60]}"
             assert not parsed.startswith('. '), f"Starts with '. ': {parsed[:60]}"
+    
+    # Assert we checked enough records
+    assert checked_count >= 30, f"Expected at least 30 non-null records, got {checked_count}"
+    assert found_141c2535, "Did not find the 141c2535 record in fixture"
