@@ -10,12 +10,13 @@ from openai import AsyncOpenAI, RateLimitError, APIError
 logger = logging.getLogger(__name__)
 
 
-async def call_openai(messages: list[dict[str, str]]) -> tuple[str, int]:
+async def call_openai(messages: list[dict[str, str]], plain_text: bool = False) -> tuple[str, int]:
     """
     Call OpenAI LLM via OpenAI API.
     
     Args:
         messages: LangChain-compatible message array with role and content
+        plain_text: If True, do not enforce JSON response format (for plain-text explanations)
     
     Returns:
         Tuple of (response_text, tokens_used)
@@ -63,15 +64,21 @@ async def call_openai(messages: list[dict[str, str]]) -> tuple[str, int]:
                         "enable_thinking": False
                     }
                 }
-                logger.info(f"Calling LLM with max_tokens=8192, extra_body={extra_body_params}")
+                logger.info(f"Calling LLM with max_tokens=8192, plain_text={plain_text}, extra_body={extra_body_params}")
                 
-                response = await client.chat.completions.create(
-                    model=model_name,
-                    messages=messages,
-                    response_format={"type": "json_object"},
-                    max_tokens=8192,
-                    extra_body=extra_body_params
-                )
+                # Build API call kwargs
+                api_kwargs = {
+                    "model": model_name,
+                    "messages": messages,
+                    "max_tokens": 8192,
+                    "extra_body": extra_body_params
+                }
+                
+                # Only add response_format if NOT plain_text mode
+                if not plain_text:
+                    api_kwargs["response_format"] = {"type": "json_object"}
+                
+                response = await client.chat.completions.create(**api_kwargs)
                 
                 # Validate response structure
                 if not response:

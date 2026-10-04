@@ -25,12 +25,13 @@ class LLMProvider(str, Enum):
     GEMINI = "gemini"
 
 
-async def call_llm(messages: list[dict[str, str]]) -> tuple[str, int]:
+async def call_llm(messages: list[dict[str, str]], plain_text: bool = False) -> tuple[str, int]:
     """
     Call LLM using provider specified in LLM_PROVIDER env var.
     
     Args:
         messages: LangChain-compatible message array
+        plain_text: If True, request plain-text response (no JSON formatting)
     
     Returns:
         Tuple of (response_text, tokens_used)
@@ -49,7 +50,7 @@ async def call_llm(messages: list[dict[str, str]]) -> tuple[str, int]:
     if provider == LLMProvider.CLAUDE:
         return await call_claude(messages)
     elif provider == LLMProvider.OPENAI:
-        return await call_openai(messages)
+        return await call_openai(messages, plain_text=plain_text)
     elif provider == LLMProvider.GEMINI:
         return await call_gemini(messages)
     else:

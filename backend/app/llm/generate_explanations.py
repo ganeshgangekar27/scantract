@@ -18,6 +18,83 @@ from ..db.models import RiskFinding, Clause
 logger = logging.getLogger(__name__)
 
 
+def parse_explanation(response_text: str) -> str | None:
+    """
+    Parse LLM response to extract plain-text explanation.
+    
+    Handles:
+    - Plain text responses
+    - JSON-wrapped responses with various key structures
+    - Malformed JSON with trailing/leading fragments
+    
+    Args:
+        response_text: Raw LLM response
+    
+    Returns:
+        Cleaned explanation text or None if invalid
+    """
+    import json
+    
+    explanation = response_text.strip()
+    
+    # Reject if contains triple pipes (corruption indicator)
+    if '|||' in explanation:
+        logger.warning(f"Explanation contains '|||' corruption marker, rejecting")
+        return None
+    
+    # Try to parse as JSON first
+    if explanation.startswith('{'):
+        try:
+            parsed = json.loads(explanation)
+            if isinstance(parsed, dict):
+                # Extract text from ANY string value in dict
+                # Priority: 'explanation' key, then first non-empty string value
+                if 'explanation' in parsed and isinstance(parsed['explanation'], str):
+                    explanation = parsed['explanation'].strip()
+                else:
+                    # Find first non-empty string value (skipping empty or whitespace-only)
+                    for value in parsed.values():
+                        if isinstance(value, str) and value.strip():
+                            explanation = value.strip()
+                            break
+                    else:
+                        # No valid string found
+                        logger.warning(f"JSON dict has no valid string values: {list(parsed.keys())}")
+                        return None
+        except json.JSONDecodeError:
+            # If JSON parsing fails, strip malformed JSON artifacts
+            # Remove leading JSON fragments: {, {"key":, {", etc.
+            # Pattern: opening brace, optional quotes/keys/colons, optional whitespace
+            explanation = re.sub(r'^\{\s*("[^"]*"\s*:\s*)?["\s]*', '', explanation)
+            # Remove trailing JSON fragments: }, ", etc.
+            explanation = re.sub(r'["\s]*\}\s*$', '', explanation)
+            explanation = explanation.strip()
+    
+    # Also strip leading } for malformed responses
+    explanation = explanation.lstrip('}').strip()
+    
+    # Strip leading punctuation fragments from malformed JSON keys: ". ", ": ", etc.
+    explanation = re.sub(r'^["\.\s:]+', '', explanation)
+    
+    return explanation
+
+
+def validate_explanation(explanation: str | None) -> bool:
+    """
+    Validate parsed explanation meets quality criteria.
+    
+    Args:
+        explanation: Parsed explanation text
+    
+    Returns:
+        True if valid, False otherwise
+    """
+    # Validate length - reject if too short, just braces/null, or over 2000 chars
+    if not explanation or len(explanation.strip()) < 20 or len(explanation) > 2000 or explanation.strip() in ["{}", "null", "{\n\n}"]:
+        return False
+    return True
+
+
 async def generate_explanation(
     finding: RiskFinding,
     db: AsyncSession
@@ -39,31 +116,16 @@ async def generate_explanation(
     # Build prompt for explanation
     prompt = _build_explanation_prompt(finding)
     
-    # Call LLM (provider-agnostic via call_llm)
+    # Call LLM (provider-agnostic via call_llm) - request plain text
     messages = [{"role": "user", "content": prompt}]
-    response_text, tokens_used = await call_llm(messages)
+    response_text, tokens_used = await call_llm(messages, plain_text=True)
     
-    # Parse response: handle both JSON-wrapped and plain text formats
-    explanation = response_text.strip()
+    # Parse and validate using extracted functions
+    explanation = parse_explanation(response_text)
     
-    # Try to parse as JSON first
-    if explanation.startswith('{'):
-        try:
-            import json
-            parsed = json.loads(explanation)
-            if isinstance(parsed, dict) and 'explanation' in parsed:
-                explanation = parsed['explanation']
-        except json.JSONDecodeError:
-            # If JSON parsing fails, strip malformed JSON artifacts
-            # Remove leading braces and quotes that aren't part of prose
-            import re
-            explanation = re.sub(r'^[\{\s"]+', '', explanation)
-            explanation = explanation.strip()
-    
-    # Validate length - reject if too short or just braces/null
-    if not explanation or len(explanation.strip()) < 20 or explanation.strip() in ["{}", "null", "{\n\n}"]:
+    if not validate_explanation(explanation):
         logger.warning(
-            f"Generated explanation is invalid (len={len(explanation.strip()) if explanation else 0}): "
+            f"Generated explanation is invalid (len={len(explanation) if explanation else 0}): "
             f"'{explanation[:50] if explanation else 'None'}'"
         )
         # Don't cache invalid explanation, leave it NULL
@@ -80,7 +142,7 @@ async def generate_explanation(
             "Do NOT use imperative language like 'you should' or 'you must'."
         )
         messages = [{"role": "user", "content": retry_prompt}]
-        response_text, tokens_used = await call_llm(messages)
+        response_text, tokens_used = await call_llm(messages, plain_text=True)
         explanation = response_text.strip()
     
     # Cache in database
