@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from app.db.models import Contract
+from app.db.models import Contract, RiskFinding
 from app.llm.classify_clauses import classify_all_clauses
 from app.llm.detect_risk import detect_risks
 from app.llm.generate_explanations import generate_all_explanations
@@ -191,13 +191,37 @@ async def _run_explanation_stage(contract: Contract, db: AsyncSession) -> None:
             f"{count} explanations generated"
         )
         
-        # Update stage (will be set to 'completed' by caller)
+        # Verify all findings have valid explanations
+        from app.llm.generate_explanations import parse_explanation, validate_explanation
+        result = await db.execute(select(RiskFinding).where(RiskFinding.contract_id == contract.id))
+        findings = result.scalars().all()
+        
+        missing_count = 0
+        for finding in findings:
+            if finding.explanation is None:
+                missing_count += 1
+            else:
+                parsed = parse_explanation(finding.explanation)
+                if not validate_explanation(parsed):
+                    missing_count += 1
+        
+        if missing_count > 0:
+            # Some explanations are missing or invalid
+            contract.pipeline_stage = 'failed'
+            contract.failed_stage = 'generating_explanations'
+            contract.error_message = f"Explanations missing or invalid for {missing_count} finding(s)"
+            await db.commit()
+            raise RuntimeError(contract.error_message)
+        
+        # All explanations valid, proceed
         contract.pipeline_stage = 'explanations_generated'
         await db.commit()
         
     except Exception as e:
-        contract.pipeline_stage = 'failed'
-        contract.failed_stage = 'generating_explanations'
-        contract.error_message = f"Explanation generation failed: {str(e)}"
-        await db.commit()
+        # If not already set to failed above
+        if contract.pipeline_stage != 'failed':
+            contract.pipeline_stage = 'failed'
+            contract.failed_stage = 'generating_explanations'
+            contract.error_message = f"Explanation generation failed: {str(e)}"
+            await db.commit()
         raise
