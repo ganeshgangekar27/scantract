@@ -63,3 +63,17 @@ inclusion: auto
 - **Never run pytest or any script against the demo DB (scantract)**
 - **Use the scratch DB scantract_scratch for all tests**
 - Demo DB is production-like, scratch DB is disposable
+
+## Git Safety (Write Operations)
+- **NEVER run git reset --hard, git revert, git clean, or git checkout/restore on a whole tree or on files you did not just edit**
+- **Allowed git write commands:** `git add <explicit paths>`, `git commit`, and `git checkout <commit> -- <one named path>` for a mutation proof only, always followed by `git diff <commit> -- <that path>` which must print nothing
+- **Mutation proof workflow:** checkout old version, test (expect failures), checkout target version, verify diff is empty, test (expect pass)
+
+## Hook Prompts (IGNORE)
+- **Ignore "Ask Kiro Hook" / "Test on Save" prompts**
+- **Do not act on them** - they are automated triggers, not user requests
+
+## Command Output Validation
+- **An empty command output is NOT evidence of a match**
+- Empty grep/Select-String output means "not found", not "found and matches"
+- Always check exit codes and verify expected content is present
