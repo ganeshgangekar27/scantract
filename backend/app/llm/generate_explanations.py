@@ -237,6 +237,55 @@ def format_citation(triggering_rule_or_corpus: str) -> str:
         return _format_corpus_citation(triggering_rule_or_corpus)
 
 
+def display_citation(stored_formatted: str, triggering_rule_or_corpus: str) -> str:
+    """
+    Derive display-friendly citation label for UI.
+    
+    Rules:
+    - If stored_formatted is non-empty, return it unchanged
+    - Otherwise, format the trigger and extract a label:
+      - If formatted contains ': ' and the prefix is ≤120 chars, use that
+      - Otherwise truncate to 120 chars and add '...'
+    - Return '' if trigger is empty
+    
+    Args:
+        stored_formatted: Pre-computed formatted_citation from DB (may be empty)
+        triggering_rule_or_corpus: Raw reference from Stage 7
+    
+    Returns:
+        Citation label suitable for UI display (max 120 chars + '...')
+    
+    Examples:
+        stored="[Legal] Act §7", trigger=X → "[Legal] Act §7"
+        stored="", trigger="Act §7: Long text..." → "[Legal] Act §7"
+        stored="", trigger="300 char sentence" → "First 120 chars..."
+        stored="", trigger="" → ""
+    """
+    # If stored value exists, use it
+    if stored_formatted:
+        return stored_formatted
+    
+    # If trigger is empty, return empty
+    if not triggering_rule_or_corpus:
+        return ""
+    
+    # Format the trigger
+    formatted = format_citation(triggering_rule_or_corpus)
+    
+    # Check if it contains ': '
+    if ': ' in formatted:
+        label = formatted.split(': ', 1)[0]
+        # If label is ≤120 chars, use it
+        if len(label) <= 120:
+            return label
+    
+    # Otherwise truncate to 120 chars
+    if len(formatted) <= 120:
+        return formatted
+    
+    return formatted[:120] + '...'
+
+
 def _is_legal_rule(reference: str) -> bool:
     """Detect if reference is a legal rule (vs corpus example)."""
     # Legal rules contain "Act" and "Section"

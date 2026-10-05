@@ -12,7 +12,7 @@ from collections import defaultdict
 import logging
 
 from ..db.models import Contract, Clause, RiskFinding
-from ..llm.generate_explanations import generate_all_explanations
+from ..llm.generate_explanations import generate_all_explanations, display_citation
 from .models import (
     ContractReport,
     ClauseWithRisk,
@@ -119,7 +119,10 @@ async def assemble_contract_report(
                     severity=finding.severity,
                     reason=finding.reason,
                     explanation=finding.explanation or "Explanation unavailable",
-                    formatted_citation=finding.formatted_citation or ""
+                    formatted_citation=display_citation(
+                        finding.formatted_citation or "",
+                        finding.triggering_rule_or_corpus
+                    )
                 ))
         elif finding.finding_type == "missing_clause":
             missing_clauses.append(MissingClauseReport(
@@ -128,7 +131,10 @@ async def assemble_contract_report(
                 severity=finding.severity,
                 reason=finding.reason,
                 explanation=finding.explanation or "Explanation unavailable",
-                formatted_citation=finding.formatted_citation or ""
+                formatted_citation=display_citation(
+                    finding.formatted_citation or "",
+                    finding.triggering_rule_or_corpus
+                )
             ))
     
     # Sort risky clauses by severity (high first), then clause_number
