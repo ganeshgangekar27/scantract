@@ -227,9 +227,24 @@ def format_citation(triggering_rule_or_corpus: str) -> str:
         "Maharashtra Rent Control Act 1999, Section 11(2) (Maharashtra)"
         → "[Legal] Maharashtra Rent Control Act 1999, §11(2) (Maharashtra)"
         
-        "Standard practice - fair deposit terms"
-        → "[Reference] Standard practice - fair deposit terms"
+        "Model Tenancy Act Section 13(1); Reference Example: Chennai"
+        → "[Legal] Model Tenancy Act §13(1); [Reference] Chennai"
+        
+        "[Reference Example: Template] Clause text"
+        → "[Reference] Template"
     """
+    # Check for mixed citation (contains both legal and reference parts)
+    if ";" in triggering_rule_or_corpus and "Reference Example" in triggering_rule_or_corpus:
+        parts = triggering_rule_or_corpus.split(";")
+        formatted_parts = []
+        for part in parts:
+            part = part.strip()
+            if _is_legal_rule(part):
+                formatted_parts.append(_format_legal_citation(part))
+            else:
+                formatted_parts.append(_format_corpus_citation(part))
+        return "; ".join(formatted_parts)
+    
     # Detect citation type
     if _is_legal_rule(triggering_rule_or_corpus):
         return _format_legal_citation(triggering_rule_or_corpus)
@@ -243,9 +258,8 @@ def display_citation(stored_formatted: str, triggering_rule_or_corpus: str) -> s
     
     Rules:
     - If stored_formatted is non-empty, return it unchanged
-    - Otherwise, format the trigger and extract a label:
-      - If formatted contains ': ' and the prefix is ≤120 chars, use that
-      - Otherwise truncate to 120 chars and add '...'
+    - Otherwise, format the trigger and return it (already cleaned by format_citation)
+    - Truncate to 120 chars + '...' if needed
     - Return '' if trigger is empty
     
     Args:
@@ -269,17 +283,10 @@ def display_citation(stored_formatted: str, triggering_rule_or_corpus: str) -> s
     if not triggering_rule_or_corpus:
         return ""
     
-    # Format the trigger
+    # Format the trigger (this now returns clean labels without clause text)
     formatted = format_citation(triggering_rule_or_corpus)
     
-    # Check if it contains ': '
-    if ': ' in formatted:
-        label = formatted.split(': ', 1)[0]
-        # If label is ≤120 chars, use it
-        if len(label) <= 120:
-            return label
-    
-    # Otherwise truncate to 120 chars
+    # Truncate if needed
     if len(formatted) <= 120:
         return formatted
     
@@ -294,12 +301,19 @@ def _is_legal_rule(reference: str) -> bool:
 
 def _format_legal_citation(reference: str) -> str:
     """
-    Format legal rule citation.
+    Format legal rule citation, extracting just the section reference.
     
-    Pattern: "Act Name YEAR, Section X(Y)" → "[Legal] Act Name YEAR, §X(Y)"
+    Pattern: "Act Name Section X(Y): Clause text..." → "[Legal] Act Name §X(Y)"
+    Pattern: "Act Name Section X(Y)" → "[Legal] Act Name §X(Y)"
     """
+    # If there's ": " it means clause text follows, extract just the legal reference part
+    if ": " in reference:
+        legal_part = reference.split(": ", 1)[0]
+    else:
+        legal_part = reference
+    
     # Replace "Section" with section symbol (§)
-    formatted = reference.replace("Section ", "§")
+    formatted = legal_part.replace("Section ", "§")
     
     # Add [Legal] prefix
     return f"[Legal] {formatted}"
@@ -309,8 +323,33 @@ def _format_corpus_citation(reference: str) -> str:
     """
     Format reference corpus citation.
     
-    Pattern: "Label - description" → "[Reference] Label - description"
+    Patterns:
+    - "[Reference Example: Template Name] Clause text..." 
+      → "[Reference] Template Name"
+    - "Reference Example: Template Name: Clause text..."
+      → "[Reference] Template Name"
+    - Otherwise: "[Reference] {reference}"
     """
+    # Pattern 1: [Reference Example: Template] Clause text
+    if reference.startswith("[Reference Example:") and "]" in reference:
+        # Extract content between "[Reference Example:" and "]"
+        start = len("[Reference Example:")
+        end = reference.index("]")
+        template_name = reference[start:end].strip()
+        return f"[Reference] {template_name}"
+    
+    # Pattern 2: Reference Example: Template Name: Clause text
+    if reference.startswith("Reference Example:"):
+        # Remove "Reference Example:" prefix
+        rest = reference[len("Reference Example:"):].strip()
+        # If there's another ":", extract the part before it (template name)
+        if ": " in rest:
+            template_name = rest.split(": ", 1)[0].strip()
+            return f"[Reference] {template_name}"
+        # Otherwise use the whole rest
+        return f"[Reference] {rest}"
+    
+    # Default: just add [Reference] prefix
     return f"[Reference] {reference}"
 
 

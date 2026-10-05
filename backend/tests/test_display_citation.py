@@ -57,16 +57,36 @@ def test_extracts_label_before_colon_single_section():
 
 
 def test_reference_example_with_bracket():
-    """Reference corpus with bracket notation extracts label before colon."""
+    """Reference corpus with bracket notation extracts template name."""
     stored = ""
     trigger = "[Reference Example: Tamil Nadu lease agreement template] Either party may terminate this agreement by giving 60 days' written notice to the other party."
     
     result = display_citation(stored, trigger)
     
-    # The formatted version is "[Reference] [Reference Example: ..."
-    # We extract before ': ' which gives us "[Reference] [Reference Example"
-    assert result == "[Reference] [Reference Example"
-    assert len(result) <= 120
+    # Should extract the template name from inside the brackets
+    assert result == "[Reference] Tamil Nadu lease agreement template"
+
+
+def test_reference_example_without_bracket():
+    """Reference corpus without bracket notation extracts template name."""
+    stored = ""
+    trigger = "Reference Example: Maharashtra standard lease (market rate): The monthly rent is INR 25,000, payable by the 5th of each month"
+    
+    result = display_citation(stored, trigger)
+    
+    # Should extract the label before the second ': '
+    assert result == "[Reference] Maharashtra standard lease (market rate)"
+
+
+def test_mixed_legal_and_reference():
+    """Mixed legal and reference corpus citation."""
+    stored = ""
+    trigger = "Model Tenancy Act Section 13(1); Reference Example: Chennai house lease format"
+    
+    result = display_citation(stored, trigger)
+    
+    # Should format both parts properly
+    assert result == "[Legal] Model Tenancy Act §13(1); [Reference] Chennai house lease format"
 
 
 def test_bare_sentence_truncation():
@@ -175,3 +195,27 @@ def test_assemble_report_uses_display_citation():
     assert report.missing_clauses[0].formatted_citation == "[Legal] Model Tenancy Act §9(1)"
     assert ": " not in report.missing_clauses[0].formatted_citation
     assert len(report.missing_clauses[0].formatted_citation) <= 120
+
+
+
+def test_invariant_no_unbalanced_brackets():
+    """No result should have unbalanced brackets."""
+    # Test with all real trigger prefixes from contracts 1 and 44
+    triggers = [
+        "Model Tenancy Act Section 7(1): The security deposit shall not exceed...",
+        "Model Tenancy Act Section 13(1); Model Tenancy Act Section 15(2)",
+        "Reference Example: Maharashtra standard lease (market rate): The monthly rent...",
+        "[Reference Example: Tamil Nadu lease agreement template] Either party may terminate...",
+        "Model Tenancy Act Section 13(1); Reference Example: Chennai house lease format",
+        "This is a very long bare sentence with no colon that exceeds one hundred and twenty characters and should be truncated with three dots at the end to indicate more content" + "X" * 100,
+        ""
+    ]
+    
+    for trigger in triggers:
+        result = display_citation("", trigger)
+        open_count = result.count('[')
+        close_count = result.count(']')
+        assert open_count == close_count, f"Unbalanced brackets in result for trigger: {trigger[:60]}"
+        
+        if result:  # Non-empty results
+            assert len(result) <= 123, f"Result too long ({len(result)} chars) for trigger: {trigger[:60]}"
