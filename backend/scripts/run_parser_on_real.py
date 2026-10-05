@@ -26,7 +26,7 @@ if len(sys.argv) < 2:
 output_path = Path(sys.argv[1])
 fixture_path = Path(sys.argv[2]) if len(sys.argv) >= 3 else Path(fixture_default)
 
-with open(fixture_path, 'r') as f:
+with open(fixture_path, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 accepted = 0
@@ -66,7 +66,7 @@ for item in data:
     print(line)
 
 # Write to output file
-with open(output_path, 'w') as f:
+with open(output_path, 'w', encoding='utf-8', newline='') as f:
     f.write('\n'.join(lines))
     f.write('\n')
 

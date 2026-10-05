@@ -23,6 +23,20 @@ from app.llm.generate_explanations import parse_explanation, validate_explanatio
     ('{": This text is in the key with colon prefix"}', "This text is in the key with colon prefix", True),
     ('{". Another text in key here": ""}', "Another text in key here", True),
     
+    # Real c4163c80: key and value both content (20+ chars), should be joined
+    ('{"This clause differs from standard practice because it ties the lease term.": "Indian rental law typically requires a defined lease duration."}', 
+     "This clause differs from standard practice because it ties the lease term. Indian rental law typically requires a defined lease duration.", True),
+    
+    # Label key (short): only value extracted
+    ('{"text": "This is the actual content we want"}', "This is the actual content we want", True),
+    
+    # Both key and value 20+ chars: joined with space
+    ('{"First content part over twenty characters": "Second content part over twenty characters"}', 
+     "First content part over twenty characters Second content part over twenty characters", True),
+    
+    # Key with leading punctuation, empty value list: key only
+    ('{". Text in key that is long enough": []}', "Text in key that is long enough", True),
+    
     # Newline inside wrapper
     ('{"First sentence.\\nSecond sentence of at least twenty characters."}', "First sentence.\\nSecond sentence of at least twenty characters.", True),
     
@@ -67,7 +81,7 @@ def test_real_fixtures_invariant():
     """Test all real fixture explanations satisfy invariant."""
     # Locate fixture relative to this test file
     fixture_path = Path(__file__).parent / "fixtures" / "real_explanations.json"
-    with open(fixture_path, 'r') as f:
+    with open(fixture_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
     checked_count = 0
@@ -99,31 +113,36 @@ def test_real_fixtures_invariant():
             assert not parsed.startswith(':'), f"Starts with colon: {parsed[:60]}"
             assert not parsed.startswith('. '), f"Starts with '. ': {parsed[:60]}"
             
-            # Substring invariant: parsed must be a substring of stored,
-            # OR equal to a JSON key or value (after stripping)
+            # Substring invariant: parsed must be a contiguous substring of stored,
+            # OR when stored is valid JSON, equal the single-space-joined content strings
+            # (keys 20+ chars + all non-empty string values, order preserved, wrappers stripped, JSON escapes decoded)
             is_substring = parsed in stored
             
-            # Try parsing as JSON to check if parsed equals a key or value
-            is_json_part = False
-            try:
-                obj = json.loads(stored)
-                if isinstance(obj, dict):
-                    for k, v in obj.items():
-                        # Check value
-                        if isinstance(v, str) and parsed == v:
-                            is_json_part = True
-                            break
-                        # Check key after stripping leading punctuation
-                        if isinstance(k, str):
-                            import re
-                            k_stripped = re.sub(r'^["\.\s:]+', '', k).strip()
-                            if parsed == k_stripped:
-                                is_json_part = True
-                                break
-            except:
-                pass  # Not valid JSON, that's ok
+            # Try parsing as JSON to check joined content
+            is_json_joined = False
+            if not is_substring:
+                try:
+                    obj = json.loads(stored)
+                    if isinstance(obj, dict):
+                        # Collect content strings: keys >= 20 chars (after stripping) and all non-empty values
+                        content_parts = []
+                        for k, v in obj.items():
+                            if isinstance(k, str):
+                                import re
+                                k_stripped = re.sub(r'^["\.\s:]+', '', k).strip()
+                                if len(k_stripped) >= 20:
+                                    content_parts.append(k_stripped)
+                            if isinstance(v, str) and v.strip():
+                                content_parts.append(v.strip())
+                        
+                        # Join with single space
+                        joined = ' '.join(content_parts)
+                        if parsed == joined:
+                            is_json_joined = True
+                except:
+                    pass  # Not valid JSON, that's ok
             
-            assert is_substring or is_json_part, f"Parsed not substring or JSON part for {finding_id}: stored={stored[:60]}, parsed={parsed[:60]}"
+            assert is_substring or is_json_joined, f"Parsed not substring or joined content for {finding_id}: stored={stored[:60]}, parsed={parsed[:60]}"
     
     # Assert we checked enough records
     assert checked_count >= 30, f"Expected at least 30 non-null records, got {checked_count}"

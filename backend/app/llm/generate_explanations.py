@@ -27,6 +27,7 @@ def parse_explanation(response_text: str) -> str | None:
     - JSON-wrapped responses with various key structures
     - Malformed JSON with trailing/leading fragments
     - Text in JSON keys (when value is empty/invalid)
+    - Joins content from both keys (20+ chars) and values
     
     Args:
         response_text: Raw LLM response
@@ -48,36 +49,29 @@ def parse_explanation(response_text: str) -> str | None:
         try:
             parsed = json.loads(explanation)
             if isinstance(parsed, dict):
-                # Extract text from ANY string value or key in dict
-                # Priority: 'explanation' key, then first non-empty string value, then first non-empty key
-                if 'explanation' in parsed and isinstance(parsed['explanation'], str):
-                    explanation = parsed['explanation'].strip()
+                # Collect content strings: keys >= 20 chars (after stripping) and all non-empty string values
+                content_parts = []
+                
+                for key, value in parsed.items():
+                    # Process key
+                    if isinstance(key, str):
+                        # Strip leading punctuation from key: ". ", ": ", etc.
+                        key_stripped = re.sub(r'^["\.\s:]+', '', key).strip()
+                        if len(key_stripped) >= 20:
+                            content_parts.append(key_stripped)
+                    
+                    # Process value
+                    if isinstance(value, str):
+                        value_stripped = value.strip()
+                        if value_stripped:  # Non-empty
+                            content_parts.append(value_stripped)
+                
+                if content_parts:
+                    explanation = ' '.join(content_parts)
                 else:
-                    # Find first non-empty string value (skipping empty or whitespace-only)
-                    found = False
-                    for value in parsed.values():
-                        if isinstance(value, str):
-                            value_stripped = value.strip()
-                            if value_stripped:  # Must have content after stripping
-                                explanation = value_stripped
-                                found = True
-                                break
-                    
-                    # If no valid value found, try keys
-                    if not found:
-                        for key in parsed.keys():
-                            if isinstance(key, str):
-                                # Strip leading punctuation from key: ". ", ": ", etc.
-                                key_stripped = re.sub(r'^["\.\s:]+', '', key).strip()
-                                if key_stripped:  # Must have content after stripping
-                                    explanation = key_stripped
-                                    found = True
-                                    break
-                    
-                    if not found:
-                        # No valid string found in values or keys
-                        logger.warning(f"JSON dict has no valid string values or keys: {list(parsed.keys())}")
-                        return None
+                    # No valid content found
+                    logger.warning(f"JSON dict has no valid string values or keys: {list(parsed.keys())}")
+                    return None
         except json.JSONDecodeError:
             # If JSON parsing fails, strip malformed JSON artifacts
             # Remove leading JSON fragments: {, {"key":, {", etc.
