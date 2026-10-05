@@ -225,3 +225,4 @@ async def _run_explanation_stage(contract: Contract, db: AsyncSession) -> None:
             contract.error_message = f"Explanation generation failed: {str(e)}"
             await db.commit()
         raise
+
