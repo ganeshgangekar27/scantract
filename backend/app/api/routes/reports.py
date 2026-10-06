@@ -57,7 +57,22 @@ async def get_contract_report(
         error_msg = str(e)
         # Check if it's an incomplete processing error
         if "processing incomplete" in error_msg.lower():
-            raise HTTPException(status_code=409, detail=error_msg)
+            # Fetch contract for error details
+            from sqlalchemy import select
+            from ...db.models import Contract
+            result = await db.execute(select(Contract).where(Contract.id == contract_id))
+            contract = result.scalar_one_or_none()
+            
+            if contract:
+                detail = {
+                    "message": error_msg,
+                    "failed_stage": contract.failed_stage,
+                    "error_message": contract.error_message
+                }
+            else:
+                detail = error_msg
+            
+            raise HTTPException(status_code=409, detail=detail)
         # Otherwise it's a 404
         raise HTTPException(status_code=404, detail=error_msg)
     

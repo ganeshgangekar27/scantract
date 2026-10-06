@@ -37,6 +37,7 @@ class ContractListItem(BaseModel):
     processing_status: str  # 'uploaded', 'processing', 'completed', 'failed'
     pipeline_stage: Optional[str]  # 'extraction', 'segmentation', etc.
     failed_stage: Optional[str]
+    error_message: Optional[str]
 
 
 # Configuration from environment
@@ -176,7 +177,8 @@ async def list_contracts(
             uploaded_at=c.uploaded_at,
             processing_status=c.processing_status,
             pipeline_stage=c.pipeline_stage,
-            failed_stage=c.failed_stage
+            failed_stage=c.failed_stage,
+            error_message=c.error_message
         )
         for c in contracts
     ]

@@ -12,6 +12,7 @@ from app.db.models import Contract, RiskFinding
 from app.llm.classify_clauses import classify_all_clauses
 from app.llm.detect_risk import detect_risks
 from app.llm.generate_explanations import generate_all_explanations
+from app.utils.error_handling import friendly_error
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,11 @@ async def _run_classification_stage(contract: Contract, db: AsyncSession) -> Non
         
         # Check if any clauses classified
         if stats['successful'] == 0:
-            raise RuntimeError(f"Classification failed: 0/{stats['total']} clauses classified")
+            # Include first error for diagnosis
+            error_msg = f"Classification failed: 0/{stats['total']} clauses classified"
+            if stats.get('first_error'):
+                error_msg += f" (first error: {stats['first_error']})"
+            raise RuntimeError(error_msg)
         
         # Update stage
         contract.pipeline_stage = 'classified'
@@ -114,7 +119,7 @@ async def _run_classification_stage(contract: Contract, db: AsyncSession) -> Non
     except Exception as e:
         contract.pipeline_stage = 'failed'
         contract.failed_stage = 'classifying'
-        contract.error_message = f"Classification failed: {str(e)}"
+        contract.error_message = friendly_error(e)
         await db.commit()
         raise
 
@@ -157,7 +162,7 @@ async def _run_risk_detection_stage(contract: Contract, db: AsyncSession) -> Non
     except Exception as e:
         contract.pipeline_stage = 'failed'
         contract.failed_stage = 'detecting_risks'
-        contract.error_message = f"Risk detection failed: {str(e)}"
+        contract.error_message = friendly_error(e)
         await db.commit()
         raise
 
@@ -209,9 +214,10 @@ async def _run_explanation_stage(contract: Contract, db: AsyncSession) -> None:
             # Some explanations are missing or invalid
             contract.pipeline_stage = 'failed'
             contract.failed_stage = 'generating_explanations'
-            contract.error_message = f"Explanations missing or invalid for {missing_count} finding(s)"
+            error_msg = f"Explanations missing or invalid for {missing_count} finding(s)"
+            contract.error_message = friendly_error(error_msg)
             await db.commit()
-            raise RuntimeError(contract.error_message)
+            raise RuntimeError(error_msg)
         
         # All explanations valid, proceed
         contract.pipeline_stage = 'explanations_generated'
@@ -222,7 +228,7 @@ async def _run_explanation_stage(contract: Contract, db: AsyncSession) -> None:
         if contract.pipeline_stage != 'failed':
             contract.pipeline_stage = 'failed'
             contract.failed_stage = 'generating_explanations'
-            contract.error_message = f"Explanation generation failed: {str(e)}"
+            contract.error_message = friendly_error(e)
             await db.commit()
         raise
 

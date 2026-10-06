@@ -196,10 +196,11 @@ async def classify_all_clauses(
     successful_count = 0
     failed_count = 0
     total_tokens = 0
+    first_error = None  # Capture first error for diagnosis
     
     async def classify_and_store(clause: Clause) -> tuple[bool, int]:
         """Inner function to classify and update a single clause."""
-        nonlocal successful_count, failed_count, total_tokens
+        nonlocal successful_count, failed_count, total_tokens, first_error
         
         async with semaphore:
             try:
@@ -225,6 +226,10 @@ async def classify_all_clauses(
                     clause.classification_error = result.error
                     clause.classified_at = datetime.now(timezone.utc)
                     
+                    # Capture first error
+                    if first_error is None:
+                        first_error = result.error
+                    
                     logger.error(
                         f"Failed to classify clause {clause.clause_id}: {result.error}"
                     )
@@ -236,6 +241,10 @@ async def classify_all_clauses(
                 # Store error and continue with other clauses
                 clause.classification_error = str(e)
                 clause.classified_at = datetime.now(timezone.utc)
+                
+                # Capture first error
+                if first_error is None:
+                    first_error = str(e)
                 
                 logger.error(
                     f"RuntimeError classifying clause {clause.clause_id}: {e}"
@@ -270,5 +279,6 @@ async def classify_all_clauses(
         "total": len(clauses),
         "successful": successful_count,
         "failed": failed_count,
-        "total_tokens": total_tokens
+        "total_tokens": total_tokens,
+        "first_error": first_error  # Include first error for diagnosis
     }

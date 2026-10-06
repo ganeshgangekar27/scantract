@@ -52,8 +52,13 @@ async def assemble_contract_report(
         raise ValueError("Contract not found")
     
     if contract.pipeline_stage != 'completed':
+        error_info = {
+            "stage": contract.pipeline_stage or 'unknown',
+            "failed_stage": contract.failed_stage,
+            "error_message": contract.error_message
+        }
         raise ValueError(
-            f"Contract processing incomplete. Current stage: {contract.pipeline_stage or 'unknown'}"
+            f"Contract processing incomplete. Current stage: {error_info['stage']}"
         )
     
     # Step 2: Fetch all clauses for the contract
