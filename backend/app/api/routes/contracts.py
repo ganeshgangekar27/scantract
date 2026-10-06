@@ -13,8 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-from app.db.models import Contract
+from app.db.models import Contract, User
 from app.document_processing.processor import process_contract
+from app.auth.dependencies import get_current_user
 
 
 router = APIRouter()
@@ -87,7 +88,8 @@ def validate_file_size(size: int) -> None:
 async def upload_contract(
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = BackgroundTasks(),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ) -> UploadResponse:
     """
     Upload a contract file (PDF or DOCX) for processing.
@@ -134,7 +136,8 @@ async def upload_contract(
         filename=file.filename,
         file_path=file_path,
         uploaded_at=datetime.utcnow(),
-        processing_status='uploaded'
+        processing_status='uploaded',
+        user_id=current_user.id
     )
     
     db.add(contract)
@@ -156,7 +159,8 @@ async def upload_contract(
 
 @router.get("/list", response_model=List[ContractListItem])
 async def list_contracts(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ) -> List[ContractListItem]:
     """
     List all uploaded contracts with their processing status.
@@ -166,6 +170,7 @@ async def list_contracts(
     """
     result = await db.execute(
         select(Contract)
+        .where(Contract.user_id == current_user.id)
         .order_by(Contract.uploaded_at.desc())
     )
     contracts = result.scalars().all()

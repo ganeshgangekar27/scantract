@@ -15,6 +15,7 @@ from app.db.models import Contract
 from app.llm.classify_clauses import classify_all_clauses
 from app.llm.detect_risk import detect_risks
 from app.llm.generate_explanations import generate_all_explanations
+from app.auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,8 @@ class PipelineStatusResponse(BaseModel):
 @router.post("/{contract_id}/classify", response_model=PipelineStatusResponse)
 async def trigger_classification(
     contract_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ) -> PipelineStatusResponse:
     """
     Manually trigger clause classification for a contract.
@@ -120,7 +122,8 @@ async def trigger_classification(
 @router.post("/{contract_id}/detect-risks", response_model=PipelineStatusResponse)
 async def trigger_risk_detection(
     contract_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ) -> PipelineStatusResponse:
     """
     Manually trigger risk detection for a contract.
@@ -140,7 +143,7 @@ async def trigger_risk_detection(
         result = await db.execute(select(Contract).where(Contract.id == contract_id))
         contract = result.scalar_one_or_none()
         
-        if not contract:
+        if not contract or contract.user_id != current_user.id:
             raise HTTPException(status_code=404, detail=f"Contract {contract_id} not found")
         
         logger.info(f"Manual risk detection trigger for contract {contract_id}")
@@ -208,7 +211,8 @@ async def trigger_risk_detection(
 @router.post("/{contract_id}/generate-explanations", response_model=PipelineStatusResponse)
 async def trigger_explanation_generation(
     contract_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ) -> PipelineStatusResponse:
     """
     Manually trigger explanation generation for a contract.
@@ -240,7 +244,7 @@ async def trigger_explanation_generation(
         result = await db.execute(select(Contract).where(Contract.id == contract_id))
         contract = result.scalar_one_or_none()
         
-        if not contract:
+        if not contract or contract.user_id != current_user.id:
             raise HTTPException(status_code=404, detail=f"Contract {contract_id} not found")
         
         logger.info(f"Manual explanation generation trigger for contract {contract_id}")

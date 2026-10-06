@@ -11,6 +11,7 @@ import re
 
 from ...reports import assemble_contract_report, generate_pdf_report
 from ...db.database import get_db
+from ...auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,8 @@ router = APIRouter(prefix="/api/contracts", tags=["reports"])
 @router.get("/{contract_id}/report")
 async def get_contract_report(
     contract_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ) -> dict:
     """
     Get complete contract report (JSON).
@@ -45,6 +47,15 @@ async def get_contract_report(
         }
     """
     try:
+        # Verify ownership
+        from sqlalchemy import select
+        from ...db.models import Contract
+        result = await db.execute(select(Contract).where(Contract.id == contract_id))
+        contract = result.scalar_one_or_none()
+        
+        if not contract or contract.user_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        
         report = await assemble_contract_report(contract_id, db)
         
         return {
@@ -84,7 +95,8 @@ async def get_contract_report(
 @router.get("/{contract_id}/report/pdf")
 async def get_contract_report_pdf(
     contract_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ) -> StreamingResponse:
     """
     Download contract report as PDF.
@@ -97,6 +109,15 @@ async def get_contract_report_pdf(
         PDF file with Content-Disposition attachment header
     """
     try:
+        # Verify ownership
+        from sqlalchemy import select
+        from ...db.models import Contract
+        result = await db.execute(select(Contract).where(Contract.id == contract_id))
+        contract_check = result.scalar_one_or_none()
+        
+        if not contract_check or contract_check.user_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        
         # Assemble report
         report = await assemble_contract_report(contract_id, db)
         

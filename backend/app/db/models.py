@@ -2,12 +2,43 @@
 Database models for ScanTract.
 """
 
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, CheckConstraint
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, CheckConstraint, Boolean, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base, relationship
 import uuid
 
 Base = declarative_base()
+
+
+class User(Base):
+    """User model for authentication."""
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    is_active = Column(Boolean, nullable=False, server_default='true')
+    
+    # Relationships
+    contracts = relationship("Contract", back_populates="user", cascade="all, delete-orphan")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class PasswordResetToken(Base):
+    """Password reset token model."""
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False)  # SHA-256 hex
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="password_reset_tokens")
 
 
 class Contract(Base):
@@ -18,6 +49,9 @@ class Contract(Base):
     contract_type = Column(String(50), nullable=False)
     filename = Column(String(255), nullable=False)
     uploaded_at = Column(DateTime(timezone=True), nullable=False)
+    
+    # User ownership (nullable for backwards compatibility)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     
     # Document processing fields (Stage 2)
     file_path = Column(String(512), nullable=True)
@@ -31,6 +65,7 @@ class Contract(Base):
     failed_stage = Column(String(30), nullable=True)
     
     # Relationships
+    user = relationship("User", back_populates="contracts")
     clauses = relationship("Clause", back_populates="contract")
     risk_findings = relationship(
         "RiskFinding",

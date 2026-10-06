@@ -9,12 +9,14 @@ from app.api.routes.contracts import list_contracts
 from app.api.routes.reports import get_contract_report
 from app.db.models import Contract
 from fastapi import HTTPException
+from tests.auth_utils import create_mock_user
 
 
 @pytest.mark.asyncio
 async def test_list_contracts_includes_error_message():
     """Contracts list includes error_message field."""
     db = AsyncMock()
+    current_user = create_mock_user()
     
     # Mock contracts with and without errors
     contract1 = MagicMock(spec=Contract)
@@ -25,6 +27,7 @@ async def test_list_contracts_includes_error_message():
     contract1.pipeline_stage = "completed"
     contract1.failed_stage = None
     contract1.error_message = None
+    contract1.user_id = current_user.id
     
     contract2 = MagicMock(spec=Contract)
     contract2.id = 2
@@ -34,6 +37,7 @@ async def test_list_contracts_includes_error_message():
     contract2.pipeline_stage = "failed"
     contract2.failed_stage = "classifying"
     contract2.error_message = "Daily AI request limit reached. Try again after the quota resets (about 5:30 AM IST)."
+    contract2.user_id = current_user.id
     
     # Mock DB response
     result = MagicMock()
@@ -41,7 +45,7 @@ async def test_list_contracts_includes_error_message():
     db.execute.return_value = result
     
     # Call endpoint
-    response = await list_contracts(db)
+    response = await list_contracts(db, current_user)
     
     # Verify response includes error_message
     assert len(response) == 2
@@ -55,6 +59,7 @@ async def test_list_contracts_includes_error_message():
 async def test_report_409_includes_error_details():
     """Report 409 response includes failed_stage and error_message."""
     db = AsyncMock()
+    current_user = create_mock_user()
     
     # Mock contract that's not completed
     contract = MagicMock(spec=Contract)
@@ -62,6 +67,7 @@ async def test_report_409_includes_error_details():
     contract.pipeline_stage = "failed"
     contract.failed_stage = "detecting_risks"
     contract.error_message = "Daily AI request limit reached. Try again after the quota resets (about 5:30 AM IST)."
+    contract.user_id = current_user.id
     
     contract_result = MagicMock()
     contract_result.scalar_one_or_none.return_value = contract
@@ -70,7 +76,7 @@ async def test_report_409_includes_error_details():
     
     # Call endpoint and expect 409
     with pytest.raises(HTTPException) as exc_info:
-        await get_contract_report(3, db)
+        await get_contract_report(3, db, current_user)
     
     # Verify 409 status
     assert exc_info.value.status_code == 409

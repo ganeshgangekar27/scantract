@@ -4,13 +4,14 @@ API endpoints for explanation generation and retrieval.
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import update
+from sqlalchemy import update, select
 import logging
 
 from ...llm.generate_explanations import get_contract_explanations, generate_all_explanations
 from ...llm.models import ContractExplanationsResponse
-from ...db.models import RiskFinding
+from ...db.models import RiskFinding, Contract
 from ...db.database import get_db
+from ...auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,8 @@ router = APIRouter(prefix="/api/contracts", tags=["explanations"])
 async def get_explanations(
     contract_id: int,
     auto_generate: bool = True,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ) -> dict:
     """
     Get all risk findings with explanations for a contract.
@@ -49,6 +51,13 @@ async def get_explanations(
         - All citations traceable to Stage 7 findings
     """
     try:
+        # Verify ownership
+        result_check = await db.execute(select(Contract).where(Contract.id == contract_id))
+        contract = result_check.scalar_one_or_none()
+        
+        if not contract or contract.user_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        
         result = await get_contract_explanations(
             contract_id=contract_id,
             db=db,
@@ -72,7 +81,8 @@ async def get_explanations(
 @router.post("/{contract_id}/explanations/regenerate")
 async def regenerate_explanations(
     contract_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ) -> dict:
     """
     Regenerate all explanations for a contract.
@@ -92,6 +102,13 @@ async def regenerate_explanations(
         }
     """
     try:
+        # Verify ownership
+        result_check = await db.execute(select(Contract).where(Contract.id == contract_id))
+        contract = result_check.scalar_one_or_none()
+        
+        if not contract or contract.user_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        
         # Clear cached explanations
         await db.execute(
             update(RiskFinding)

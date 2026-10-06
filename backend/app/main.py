@@ -13,6 +13,7 @@ from .api.routes.reports import router as reports_router
 from .api.routes.explanations import router as explanations_router
 from .api.routes.contracts import router as contracts_router
 from .api.routes.pipeline import router as pipeline_router
+from .api.routes.auth import router as auth_router
 from .db.database import get_db
 from .db.models import Contract
 
@@ -31,6 +32,10 @@ async def lifespan(app: FastAPI):
     Startup/shutdown lifespan handler.
     Marks interrupted contracts as failed on startup.
     """
+    # Validate JWT_SECRET
+    from app.auth.jwt import validate_jwt_secret
+    validate_jwt_secret()
+    
     # Startup: Mark interrupted contracts as failed
     async for db in get_db():
         try:
@@ -92,6 +97,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(reports_router)
 app.include_router(explanations_router)
 app.include_router(contracts_router, prefix="/api/contracts", tags=["contracts"])

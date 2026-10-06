@@ -68,6 +68,10 @@ services:
       
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Authentication
+      JWT_SECRET: ${JWT_SECRET}
+      RESET_LINK_MODE: ${RESET_LINK_MODE:-demo}
     ports:
       - "8000:8000"
     volumes:

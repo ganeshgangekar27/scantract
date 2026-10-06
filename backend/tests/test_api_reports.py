@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
 from app.api.routes.reports import router, get_db
+from app.auth.dependencies import get_current_user
+from tests.auth_utils import mock_get_current_user
 from app.reports.models import (
     ContractReport,
     RiskSummary,
@@ -36,8 +38,9 @@ def app(mock_db):
     """Create FastAPI app with reports router and dependency overrides."""
     app = FastAPI()
     app.include_router(router)
-    # Override get_db dependency with mock
+    # Override dependencies with mocks
     app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = mock_get_current_user
     return app
 
 
