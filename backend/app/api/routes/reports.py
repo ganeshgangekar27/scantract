@@ -87,6 +87,8 @@ async def get_contract_report(
         # Otherwise it's a 404
         raise HTTPException(status_code=404, detail=error_msg)
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get report for contract {contract_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -147,6 +149,9 @@ async def get_contract_report_pdf(
             status_code=500,
             detail="PDF generation unavailable. GTK libraries required on Windows."
         )
+    
+    except HTTPException:
+        raise
     
     except Exception as e:
         logger.error(f"Failed to generate PDF for contract {contract_id}: {e}")

@@ -12,7 +12,7 @@ from fastapi import FastAPI
 
 from app.api.routes.reports import router, get_db
 from app.auth.dependencies import get_current_user
-from tests.auth_utils import mock_get_current_user
+from tests.auth_utils import mock_get_current_user_sync
 from app.reports.models import (
     ContractReport,
     RiskSummary,
@@ -38,9 +38,17 @@ def app(mock_db):
     """Create FastAPI app with reports router and dependency overrides."""
     app = FastAPI()
     app.include_router(router)
+    
+    # Mock contract query result for ownership check
+    mock_contract = MagicMock()
+    mock_contract.user_id = 1  # Match mock user's id
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_contract
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    
     # Override dependencies with mocks
     app.dependency_overrides[get_db] = lambda: mock_db
-    app.dependency_overrides[get_current_user] = mock_get_current_user
+    app.dependency_overrides[get_current_user] = mock_get_current_user_sync
     return app
 
 

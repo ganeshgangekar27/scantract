@@ -59,7 +59,7 @@ async def trigger_classification(
         result = await db.execute(select(Contract).where(Contract.id == contract_id))
         contract = result.scalar_one_or_none()
         
-        if not contract:
+        if not contract or contract.user_id != current_user.id:
             raise HTTPException(status_code=404, detail=f"Contract {contract_id} not found")
         
         logger.info(f"Manual classification trigger for contract {contract_id}")

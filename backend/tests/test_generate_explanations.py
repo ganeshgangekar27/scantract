@@ -22,6 +22,7 @@ from app.llm.generate_explanations import (
 )
 from app.llm.models import ContractExplanationsResponse
 from app.db.models import RiskFinding, Clause
+from tests.auth_utils import create_mock_user
 from tests.mocks.mock_explanation_responses import (
     VALID_EXPLANATION_PLAIN_LANGUAGE,
     FORBIDDEN_LANGUAGE_EXPLANATION,
@@ -583,12 +584,28 @@ async def test_regenerate_endpoint(mock_db):
     # CORRECT PATTERN
     mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = findings
-    mock_db.execute = AsyncMock(return_value=mock_result)
+    
+    # Mock contract with ownership
+    mock_contract = MagicMock()
+    mock_contract.user_id = 1
+    mock_contract_result = MagicMock()
+    mock_contract_result.scalar_one_or_none.return_value = mock_contract
+    
+    async def mock_execute(query):
+        # First call is for contract check, second is for findings
+        if not hasattr(mock_execute, 'call_count'):
+            mock_execute.call_count = 0
+        mock_execute.call_count += 1
+        if mock_execute.call_count == 1:
+            return mock_contract_result
+        return mock_result
+    
+    mock_db.execute = AsyncMock(side_effect=mock_execute)
     
     with patch('app.llm.generate_explanations.call_llm') as mock_llm:
         mock_llm.return_value = (VALID_EXPLANATION_PLAIN_LANGUAGE, 150)
         
-        result = await regenerate_explanations(1, mock_db)
+        result = await regenerate_explanations(1, mock_db, create_mock_user())
         
         # Assert success response
         assert result["success"] is True

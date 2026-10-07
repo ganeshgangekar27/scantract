@@ -14,6 +14,7 @@ from sqlalchemy.future import select
 from app.main import app
 from app.db.models import Contract
 from app.api.routes.contracts import upload_contract, UploadResponse
+from tests.auth_utils import create_mock_user
 
 
 # Test fixtures
@@ -142,7 +143,8 @@ async def test_upload_valid_pdf(test_pdf_file, mock_db_session, mock_background_
             response = await upload_contract(
                 file=test_pdf_file,
                 background_tasks=mock_background_tasks,
-                db=mock_db_session
+                db=mock_db_session,
+                current_user=create_mock_user()
             )
     
     # Verify response
@@ -177,7 +179,8 @@ async def test_upload_valid_docx(test_docx_file, mock_db_session, mock_backgroun
             response = await upload_contract(
                 file=test_docx_file,
                 background_tasks=mock_background_tasks,
-                db=mock_db_session
+                db=mock_db_session,
+                current_user=create_mock_user()
             )
     
     # Verify response
@@ -196,7 +199,8 @@ async def test_upload_invalid_file_type(invalid_file, mock_db_session, mock_back
         await upload_contract(
             file=invalid_file,
             background_tasks=mock_background_tasks,
-            db=mock_db_session
+            db=mock_db_session,
+            current_user=create_mock_user()
         )
     
     assert exc_info.value.status_code == 400
@@ -213,7 +217,8 @@ async def test_upload_oversized_file(oversized_file, mock_db_session, mock_backg
         await upload_contract(
             file=oversized_file,
             background_tasks=mock_background_tasks,
-            db=mock_db_session
+            db=mock_db_session,
+            current_user=create_mock_user()
         )
     
     assert exc_info.value.status_code == 400
@@ -234,7 +239,8 @@ async def test_upload_creates_contract_row(test_pdf_file, mock_db_session, mock_
             await upload_contract(
                 file=test_pdf_file,
                 background_tasks=mock_background_tasks,
-                db=mock_db_session
+                db=mock_db_session,
+                current_user=create_mock_user()
             )
     
     # Verify Contract object was created and added
@@ -247,6 +253,7 @@ async def test_upload_creates_contract_row(test_pdf_file, mock_db_session, mock_
     assert added_contract.filename == "test_contract.pdf"
     assert added_contract.processing_status == 'uploaded'
     assert added_contract.file_path is not None
+    assert added_contract.user_id == 1  # Verify ownership set
 
 
 @pytest.mark.asyncio
@@ -263,7 +270,8 @@ async def test_upload_queues_background_task(test_pdf_file, mock_db_session, moc
             await upload_contract(
                 file=test_pdf_file,
                 background_tasks=mock_background_tasks,
-                db=mock_db_session
+                db=mock_db_session,
+                current_user=create_mock_user()
             )
     
     # Verify background task was added (not awaited)
@@ -289,7 +297,8 @@ async def test_response_format(test_pdf_file, mock_db_session, mock_background_t
             response = await upload_contract(
                 file=test_pdf_file,
                 background_tasks=mock_background_tasks,
-                db=mock_db_session
+                db=mock_db_session,
+                current_user=create_mock_user()
             )
     
     # Verify response type

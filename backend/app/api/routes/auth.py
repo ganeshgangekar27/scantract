@@ -5,7 +5,7 @@ import os
 import secrets
 import hashlib
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -131,7 +131,7 @@ async def register(
         email=email_lower,
         full_name=request.full_name,
         password_hash=password_hash,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         is_active=True
     )
     
@@ -271,8 +271,8 @@ async def forgot_password(
         reset_token = PasswordResetToken(
             user_id=user.id,
             token_hash=token_hash,
-            expires_at=datetime.utcnow() + timedelta(minutes=30),
-            created_at=datetime.utcnow()
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+            created_at=datetime.now(timezone.utc)
         )
         
         db.add(reset_token)
@@ -338,7 +338,7 @@ async def reset_password(
         )
     
     # Check if token expired
-    if datetime.utcnow() > reset_token.expires_at:
+    if datetime.now(timezone.utc) > reset_token.expires_at:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password reset link has expired"
@@ -360,10 +360,11 @@ async def reset_password(
     user.password_hash = hash_password(request.new_password)
     
     # Mark token as used
-    reset_token.used_at = datetime.utcnow()
+    reset_token.used_at = datetime.now(timezone.utc)
     
     await db.commit()
     
     logger.info(f"Password reset successful for user: {user.email}")
     
     return {"message": "Password has been reset successfully"}
+

@@ -73,6 +73,9 @@ async def get_explanations(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     
+    except HTTPException:
+        raise
+    
     except Exception as e:
         logger.error(f"Failed to get explanations for contract {contract_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -125,6 +128,9 @@ async def regenerate_explanations(
             "data": {"regenerated_count": count},
             "error": None
         }
+        
+    except HTTPException:
+        raise
         
     except Exception as e:
         logger.error(f"Failed to regenerate explanations for contract {contract_id}: {e}")
