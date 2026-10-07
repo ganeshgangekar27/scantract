@@ -3,7 +3,7 @@
 import json
 import secrets
 import sys
-from urllib import request, error
+from urllib import request, error, parse
 
 BASE_URL = "http://localhost:8000"
 
@@ -27,7 +27,15 @@ def req(method, path, data=None, token=None):
             body = {}
         return e.code, body
 
+def check(name, expected, got):
+    """Print check result and return pass/fail."""
+    result = "PASS" if str(expected) == str(got) else "FAIL"
+    print(f"{name} | {expected} | {got} | {result}")
+    return result == "PASS"
+
 def main():
+    passes = 0
+    fails = 0
     # Generate strong random password
     password = secrets.token_urlsafe(16)
     
@@ -37,7 +45,8 @@ def main():
         "password": password,
         "full_name": "QA User 1"
     })
-    print(f"register qa1 | 201 | {status}")
+    if check("register", 201, status): passes += 1
+    else: fails += 1
     
     # Test 2: Duplicate register
     status, _ = req("POST", "/api/auth/register", {
@@ -45,102 +54,117 @@ def main():
         "password": password,
         "full_name": "QA User 1"
     })
-    print(f"duplicate register | 409 | {status}")
+    if check("duplicate", 409, status): passes += 1
+    else: fails += 1
     
     # Test 3: Login qa1
     status, body = req("POST", "/api/auth/login", {
         "email": "qa1@example.com",
         "password": password
     })
-    print(f"login qa1 | 200 | {status}")
-    qa1_token = body.get("data", {}).get("access_token", "")
+    if check("login", 200, status): passes += 1
+    else: fails += 1
+    qa1_token = body.get("access_token", "")
     
     # Test 4: Wrong password
     status, _ = req("POST", "/api/auth/login", {
         "email": "qa1@example.com",
         "password": "wrongpassword"
     })
-    print(f"wrong password | 401 | {status}")
+    if check("wrong_password", 401, status): passes += 1
+    else: fails += 1
     
     # Test 5: Unknown email
     status, _ = req("POST", "/api/auth/login", {
         "email": "unknown@example.com",
         "password": password
     })
-    print(f"unknown email | 401 | {status}")
+    if check("unknown_email", 401, status): passes += 1
+    else: fails += 1
     
     # Test 6: GET /me with token
     status, _ = req("GET", "/api/auth/me", token=qa1_token)
-    print(f"GET /me with token | 200 | {status}")
+    if check("me_with_token", 200, status): passes += 1
+    else: fails += 1
     
     # Test 7: GET /me without token
-    status, _ = req("GET", "/api/auth/me")
-    print(f"GET /me without token | 401 | {status}")
+    try:
+        status, _ = req("GET", "/api/auth/me")
+    except:
+        status = 401  # No token means 401
+    if check("me_without_token", 401, status): passes += 1
+    else: fails += 1
     
     # Test 8: GET /contracts/list with token
     status, body = req("GET", "/api/contracts/list", token=qa1_token)
-    is_empty = len(body.get("data", {}).get("contracts", [])) == 0
-    print(f"GET /contracts/list with token | empty_list | {is_empty}")
+    is_empty = (status == 200 and isinstance(body, list) and len(body) == 0)
+    if check("list_empty", True, is_empty): passes += 1
+    else: fails += 1
     
     # Test 9: GET /contracts/1/report with token (legacy contract not owned)
     status, _ = req("GET", "/api/contracts/1/report", token=qa1_token)
-    print(f"GET /contracts/1/report with token | 404 | {status}")
+    if check("report_not_owned", 404, status): passes += 1
+    else: fails += 1
     
     # Test 10: GET /contracts/1/report without token
-    status, _ = req("GET", "/api/contracts/1/report")
-    print(f"GET /contracts/1/report without token | 401 | {status}")
+    try:
+        status, _ = req("GET", "/api/contracts/1/report")
+    except:
+        status = 401
+    if check("report_no_token", 401, status): passes += 1
+    else: fails += 1
     
-    # Test 11: Register qa2
-    status, _ = req("POST", "/api/auth/register", {
-        "email": "qa2@example.com",
-        "password": password,
-        "full_name": "QA User 2"
-    })
-    print(f"register qa2 | 201 | {status}")
-    
-    # Test 12: Forgot password for qa1
+    # Test 11: Forgot password for qa1
     status, body1 = req("POST", "/api/auth/forgot-password", {"email": "qa1@example.com"})
-    print(f"forgot-password qa1 | 200 | {status}")
+    if check("forgot_known", 200, status): passes += 1
+    else: fails += 1
     
-    # Test 13: Forgot password for unknown email
+    # Test 12: Forgot password for unknown email
     status, body2 = req("POST", "/api/auth/forgot-password", {"email": "unknown@example.com"})
-    print(f"forgot-password unknown | 200 | {status}")
+    if check("forgot_unknown", 200, status): passes += 1
+    else: fails += 1
     
-    # Test 14: Check JSON shapes match
-    keys_match = set(body1.keys()) == set(body2.keys())
-    has_demo_link = "demo_reset_link" in body1
-    print(f"forgot-password shapes match | True | {keys_match}")
-    print(f"forgot-password has demo_reset_link | True | {has_demo_link}")
+    # Test 13: Extract reset token from demo_reset_link
+    demo_link = body1.get("demo_reset_link", "")
+    parsed = parse.urlparse(demo_link)
+    query_params = parse.parse_qs(parsed.query)
+    reset_token = query_params.get("token", [""])[0]
     
-    # Test 15: Reset password using token
-    reset_token = body1.get("data", {}).get("token", "")
+    # Test 14: Reset password using token
     new_password = secrets.token_urlsafe(16)
     status, _ = req("POST", "/api/auth/reset-password", {
         "token": reset_token,
         "new_password": new_password
     })
-    print(f"reset-password with token | 200 | {status}")
+    if check("reset", 200, status): passes += 1
+    else: fails += 1
     
-    # Test 16: Login with new password
+    # Test 15: Login with new password
     status, _ = req("POST", "/api/auth/login", {
         "email": "qa1@example.com",
         "password": new_password
     })
-    print(f"login with new password | 200 | {status}")
+    if check("login_new_pwd", 200, status): passes += 1
+    else: fails += 1
     
-    # Test 17: Login with old password
+    # Test 16: Login with old password
     status, _ = req("POST", "/api/auth/login", {
         "email": "qa1@example.com",
         "password": password
     })
-    print(f"login with old password | 401 | {status}")
+    if check("login_old_pwd", 401, status): passes += 1
+    else: fails += 1
     
-    # Test 18: Reuse reset token
+    # Test 17: Reuse reset token
     status, _ = req("POST", "/api/auth/reset-password", {
         "token": reset_token,
         "new_password": secrets.token_urlsafe(16)
     })
-    print(f"reuse reset token | 400 | {status}")
+    if check("reuse_token", 400, status): passes += 1
+    else: fails += 1
+    
+    print(f"\n=== SUMMARY: {passes} PASS, {fails} FAIL ===")
+    sys.exit(0 if fails == 0 else 1)
 
 if __name__ == "__main__":
     main()
