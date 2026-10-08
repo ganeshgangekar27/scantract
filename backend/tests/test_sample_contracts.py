@@ -29,16 +29,19 @@ async def login(client, email, password):
 @pytest.fixture(autouse=True)
 async def cleanup(db_session):
     """Cleanup before and after each test."""
-    await db_session.execute(delete(RiskFinding).where(RiskFinding.id >= 900000))
-    await db_session.execute(delete(Clause).where(Clause.id >= 900000))
+    # Delete by contract_id for findings/clauses (risk_findings.id is UUID, not INTEGER)
+    await db_session.execute(delete(RiskFinding).where(RiskFinding.contract_id >= 900000))
+    await db_session.execute(delete(Clause).where(Clause.contract_id >= 900000))
     await db_session.execute(delete(Contract).where(Contract.id >= 900000))
-    await db_session.execute(delete(User).where(User.email.like('%@example.com')))
+    # Delete only test users by exact email pattern
+    await db_session.execute(delete(User).where(User.email.in_(['a@example.com', 'b@example.com'])))
     await db_session.commit()
     yield
-    await db_session.execute(delete(RiskFinding).where(RiskFinding.id >= 900000))
-    await db_session.execute(delete(Clause).where(Clause.id >= 900000))
+    # Same cleanup after test
+    await db_session.execute(delete(RiskFinding).where(RiskFinding.contract_id >= 900000))
+    await db_session.execute(delete(Clause).where(Clause.contract_id >= 900000))
     await db_session.execute(delete(Contract).where(Contract.id >= 900000))
-    await db_session.execute(delete(User).where(User.email.like('%@example.com')))
+    await db_session.execute(delete(User).where(User.email.in_(['a@example.com', 'b@example.com'])))
     await db_session.commit()
 
 
@@ -56,15 +59,16 @@ async def test_sample_read_access(client: AsyncClient, db_session):
     db_session.add(contract)
     
     clause = Clause(
-        id=900001, contract_id=900001, clause_text="text",
-        clause_type="payment", start_char=0, end_char=10
+        id=900001, contract_id=900001, clause_id="C1", position=1, text="text",
+        clause_type="payment"
     )
     db_session.add(clause)
     
     finding = RiskFinding(
-        id=900001, contract_id=900001, clause_id=900001,
-        finding_type="risky", severity="high",
-        explanation="exp", citation="cite", legal_rule_id=None
+        contract_id=900001, clause_id=900001,
+        finding_type="risky_clause", severity="high",
+        reason="Test risk", triggering_rule_or_corpus="Test rule",
+        explanation="exp", formatted_citation="cite"
     )
     db_session.add(finding)
     await db_session.commit()
@@ -169,13 +173,13 @@ async def test_list_shows_own_and_samples(client: AsyncClient, db_session):
     resp = await client.get("/api/contracts/list", headers=headers)
     
     contracts = resp.json()
-    ids = [c["id"] for c in contracts]
+    ids = [c["contract_id"] for c in contracts]
     
     assert 900006 in ids  # Own contract
     assert 900007 in ids  # Sample
     assert 900005 not in ids  # A's private
     
-    sample_item = next(c for c in contracts if c["id"] == 900007)
+    sample_item = next(c for c in contracts if c["contract_id"] == 900007)
     assert sample_item["is_sample"] is True
 
 

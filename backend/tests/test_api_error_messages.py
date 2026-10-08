@@ -28,6 +28,7 @@ async def test_list_contracts_includes_error_message():
     contract1.failed_stage = None
     contract1.error_message = None
     contract1.user_id = current_user.id
+    contract1.is_sample = False
     
     contract2 = MagicMock(spec=Contract)
     contract2.id = 2
@@ -38,11 +39,16 @@ async def test_list_contracts_includes_error_message():
     contract2.failed_stage = "classifying"
     contract2.error_message = "Daily AI request limit reached. Try again after the quota resets (about 5:30 AM IST)."
     contract2.user_id = current_user.id
+    contract2.is_sample = False
     
-    # Mock DB response
-    result = MagicMock()
-    result.scalars.return_value.all.return_value = [contract1, contract2]
-    db.execute.return_value = result
+    # Mock DB response - route makes two queries (user contracts, then samples)
+    user_result = MagicMock()
+    user_result.scalars.return_value.all.return_value = [contract1, contract2]
+    
+    sample_result = MagicMock()
+    sample_result.scalars.return_value.all.return_value = []
+    
+    db.execute.side_effect = [user_result, sample_result]
     
     # Call endpoint
     response = await list_contracts(db, current_user)
