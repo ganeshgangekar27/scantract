@@ -140,7 +140,7 @@ export function SignupPage() {
           <h2 className="text-2xl font-bold text-text-primary mb-2">Create an account</h2>
           <p className="text-text-secondary mb-6">Get started with ScanTract</p>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <Input
               label="Full name"
               type="text"

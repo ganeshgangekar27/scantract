@@ -78,7 +78,7 @@ export function LoginPage() {
           <h2 className="text-2xl font-bold text-text-primary mb-2">Log in to your account</h2>
           <p className="text-text-secondary mb-6">Welcome back! Please enter your details.</p>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <Input
               label="Email"
               type="email"

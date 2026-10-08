@@ -11,6 +11,8 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    Link: actual.Link,
+    BrowserRouter: actual.BrowserRouter,
   };
 });
 
@@ -26,15 +28,8 @@ describe('SignupPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     globalThis.fetch = vi.fn();
-    Object.defineProperty(globalThis, 'localStorage', {
-      value: {
-        getItem: vi.fn(),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-        clear: vi.fn(),
-      },
-      writable: true,
-    });
+    vi.mocked(localStorage.getItem).mockReturnValue(null);
+    vi.mocked(localStorage.setItem).mockClear();
   });
 
   const renderSignupPage = () => {
@@ -110,6 +105,7 @@ describe('SignupPage', () => {
     (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 409,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({ detail: 'An account with this email already exists' }),
     });
 
@@ -130,6 +126,7 @@ describe('SignupPage', () => {
 
     (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({
         access_token: 'mock-token',
         token_type: 'bearer',

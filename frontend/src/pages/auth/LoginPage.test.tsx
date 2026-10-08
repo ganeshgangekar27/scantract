@@ -5,12 +5,14 @@ import { BrowserRouter } from 'react-router-dom';
 import { LoginPage } from './LoginPage';
 import { AuthProvider } from '../../auth/AuthContext';
 
-const mockNavigate = vi.fn();
+const mockNavigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    Link: actual.Link,
+    BrowserRouter: actual.BrowserRouter,
   };
 });
 
@@ -25,24 +27,11 @@ describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     globalThis.fetch = vi.fn();
-    Object.defineProperty(globalThis, 'localStorage', {
-      value: {
-        getItem: vi.fn(),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-        clear: vi.fn(),
-      },
-      writable: true,
-    });
-    Object.defineProperty(globalThis, 'sessionStorage', {
-      value: {
-        getItem: vi.fn(),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-        clear: vi.fn(),
-      },
-      writable: true,
-    });
+    // Clear mocks, not redefine
+    vi.mocked(localStorage.getItem).mockReturnValue(null);
+    vi.mocked(localStorage.setItem).mockClear();
+    vi.mocked(sessionStorage.getItem).mockReturnValue(null);
+    vi.mocked(sessionStorage.removeItem).mockClear();
   });
 
   const renderLoginPage = () => {
@@ -62,11 +51,12 @@ describe('LoginPage', () => {
     (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 401,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({ detail: 'No account found with this email' }),
     });
 
-    await user.type(screen.getByLabelText(/email/i), 'notfound@example.com');
-    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.type(screen.getByLabelText('Email'), 'notfound@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
     await user.click(screen.getByRole('button', { name: /log in/i }));
 
     await waitFor(() => {
@@ -81,11 +71,12 @@ describe('LoginPage', () => {
     (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 401,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({ detail: 'Incorrect password' }),
     });
 
-    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
-    await user.type(screen.getByLabelText(/password/i), 'wrongpassword');
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'wrongpassword');
     await user.click(screen.getByRole('button', { name: /log in/i }));
 
     await waitFor(() => {
@@ -97,51 +88,70 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     renderLoginPage();
 
-    const mockSetItem = vi.fn();
-    (globalThis.localStorage as any).setItem = mockSetItem;
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          access_token: 'mock-token',
+          token_type: 'bearer',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          id: 1,
+          email: 'test@example.com',
+          full_name: 'Test User',
+          created_at: '2024-01-01T00:00:00Z',
+          is_active: true,
+        }),
+      });
 
-    (globalThis.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        access_token: 'mock-token',
-        token_type: 'bearer',
-      }),
-    });
-
-    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
-    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
     await user.click(screen.getByRole('button', { name: /log in/i }));
 
     await waitFor(() => {
-      expect(mockSetItem).toHaveBeenCalledWith('scantract_token', 'mock-token');
+      expect(localStorage.setItem).toHaveBeenCalledWith('scantract_token', 'mock-token');
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
     });
   });
 
   it('returns to originally wanted path after login', async () => {
     const user = userEvent.setup();
+    vi.mocked(sessionStorage.getItem).mockReturnValue('/contracts/123');
     renderLoginPage();
 
-    const mockGetItem = vi.fn((key) => key === 'redirect_after_login' ? '/contracts/123' : null);
-    const mockRemoveItem = vi.fn();
-    (globalThis.sessionStorage as any).getItem = mockGetItem;
-    (globalThis.sessionStorage as any).removeItem = mockRemoveItem;
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          access_token: 'mock-token',
+          token_type: 'bearer',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          id: 1,
+          email: 'test@example.com',
+          full_name: 'Test User',
+          created_at: '2024-01-01T00:00:00Z',
+          is_active: true,
+        }),
+      });
 
-    (globalThis.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        access_token: 'mock-token',
-        token_type: 'bearer',
-      }),
-    });
-
-    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
-    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
     await user.click(screen.getByRole('button', { name: /log in/i }));
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/contracts/123');
-      expect(mockRemoveItem).toHaveBeenCalledWith('redirect_after_login');
+      expect(sessionStorage.removeItem).toHaveBeenCalledWith('redirect_after_login');
     });
   });
 

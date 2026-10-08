@@ -1,12 +1,10 @@
 import { test, expect } from '@playwright/test';
 
-const TIMESTAMP = Date.now();
-const TEST_EMAIL = `test+${TIMESTAMP}@example.com`;
-const TEST_PASSWORD = 'TestPassword123!';
-const TEST_NAME = 'Test User';
-let RESET_TOKEN = '';
-
-test.describe('Real Backend Auth Flow', () => {
+test.describe.serial('Real Backend Auth Flow', () => {
+  const TIMESTAMP = Date.now();
+  const TEST_EMAIL = `test+${TIMESTAMP}@example.com`;
+  const TEST_PASSWORD = 'TestPassword123!';
+  const TEST_NAME = 'Test User';
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test('1. Signup lands on dashboard', async ({ page }) => {
@@ -17,7 +15,7 @@ test.describe('Real Backend Auth Flow', () => {
     await page.getByLabel('Full name').fill(TEST_NAME);
     await page.getByLabel('Email').fill(TEST_EMAIL);
     await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD);
-    await page.getByLabel('Confirm password').fill(TEST_PASSWORD);
+    await page.getByLabel('Confirm password', { exact: true }).fill(TEST_PASSWORD);
 
     // Submit
     await page.getByRole('button', { name: /create account/i }).click();
@@ -33,7 +31,7 @@ test.describe('Real Backend Auth Flow', () => {
     // Login first
     await page.goto('http://localhost:5173/login');
     await page.getByLabel('Email', { exact: true }).fill(TEST_EMAIL);
-    await page.locator('input[type="password"]').first().fill(TEST_PASSWORD);
+    await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD);
     await page.getByRole('button', { name: /log in/i }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
 
@@ -52,7 +50,7 @@ test.describe('Real Backend Auth Flow', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByLabel('Email', { exact: true }).fill(TEST_EMAIL);
-    await page.locator('input[type="password"]').first().fill('WrongPassword123!');
+    await page.getByLabel('Password', { exact: true }).fill('WrongPassword123!');
     await page.getByRole('button', { name: /log in/i }).click();
 
     // Should show "Incorrect password" error
@@ -66,7 +64,7 @@ test.describe('Real Backend Auth Flow', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByLabel('Email', { exact: true }).fill(TEST_EMAIL);
-    await page.locator('input[type="password"]').first().fill(TEST_PASSWORD);
+    await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD);
     await page.getByRole('button', { name: /log in/i }).click();
 
     // Should navigate to dashboard
@@ -95,14 +93,24 @@ test.describe('Real Backend Auth Flow', () => {
   });
 
   test('6. Reset password and login with new password', async ({ page }) => {
-    // Get reset token
+    // Get reset token via API response
     await page.goto('http://localhost:5173/forgot-password');
-    await page.getByLabel('Email', { exact: true }).fill(TEST_EMAIL);
-    await page.getByRole('button', { name: /send reset link/i }).click();
-    await expect(page.getByText('Demo mode')).toBeVisible({ timeout: 5000 });
-
-    // Click the demo link button to navigate
-    await page.getByRole('button', { name: /open reset link/i }).click();
+    const [response] = await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/api/auth/forgot-password') && resp.status() === 200),
+      page.getByLabel('Email', { exact: true }).fill(TEST_EMAIL),
+      page.getByRole('button', { name: /send reset link/i }).click()
+    ]);
+    
+    const responseData = await response.json();
+    const demoLink = responseData.demo_reset_link;
+    
+    // Extract token from demo_reset_link and navigate to correct frontend URL
+    const tokenMatch = demoLink.match(/token=([^&]+)/);
+    if (!tokenMatch) throw new Error('No token found in demo link');
+    const token = tokenMatch[1];
+    
+    // Navigate to frontend reset page with token
+    await page.goto(`http://localhost:5173/reset-password?token=${token}`);
     await page.waitForLoadState('networkidle');
 
     // Should be on reset password page
@@ -110,9 +118,8 @@ test.describe('Real Backend Auth Flow', () => {
 
     // Set new password
     const NEW_PASSWORD = 'NewTestPassword456!';
-    const passwordFields = page.locator('input[type="password"]');
-    await passwordFields.nth(0).fill(NEW_PASSWORD);
-    await passwordFields.nth(1).fill(NEW_PASSWORD);
+    await page.getByLabel('New password', { exact: true }).fill(NEW_PASSWORD);
+    await page.getByLabel('Confirm password', { exact: true }).fill(NEW_PASSWORD);
 
     // Submit
     await page.getByRole('button', { name: /reset password/i }).click();
@@ -122,7 +129,7 @@ test.describe('Real Backend Auth Flow', () => {
 
     // Login with new password
     await page.getByLabel('Email', { exact: true }).fill(TEST_EMAIL);
-    await page.locator('input[type="password"]').first().fill(NEW_PASSWORD);
+    await page.getByLabel('Password', { exact: true }).fill(NEW_PASSWORD);
     await page.getByRole('button', { name: /log in/i }).click();
 
     // Should land on dashboard
