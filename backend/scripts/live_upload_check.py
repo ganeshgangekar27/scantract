@@ -90,7 +90,7 @@ def main():
     
     # Check findings quality
     findings = report["risky_clauses"] + report["missing_clauses"]
-    empty_citation = sum(1 for f in findings if not f.get("citation"))
+    empty_citation = sum(1 for f in findings if not f.get("formatted_citation"))
     empty_explanation = sum(1 for f in findings if not f.get("explanation"))
     brace_in_explanation = sum(1 for f in findings if "{" in f.get("explanation", "") or "}" in f.get("explanation", ""))
     
@@ -102,7 +102,7 @@ def main():
     for i, finding in enumerate(findings[:14]):
         ftype = "risky" if finding in report["risky_clauses"] else "missing"
         severity = finding.get("severity", "unknown")
-        citation = finding.get("citation", "")[:30]
+        citation = finding.get("formatted_citation", "")[:30]
         print(f"{ftype} | {severity} | {citation}")
     
     # Get PDF report
