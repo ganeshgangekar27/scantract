@@ -53,6 +53,9 @@ class Contract(Base):
     # User ownership (nullable for backwards compatibility)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     
+    # Sample contract flag (Stage 11D)
+    is_sample = Column(Boolean, nullable=False, server_default='false', index=True)
+    
     # Document processing fields (Stage 2)
     file_path = Column(String(512), nullable=True)
     full_text = Column(Text, nullable=True)

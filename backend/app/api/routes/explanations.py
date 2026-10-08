@@ -51,11 +51,12 @@ async def get_explanations(
         - All citations traceable to Stage 7 findings
     """
     try:
-        # Verify ownership
+        # Verify ownership or sample access (read-only)
         result_check = await db.execute(select(Contract).where(Contract.id == contract_id))
         contract = result_check.scalar_one_or_none()
         
-        if not contract or contract.user_id != current_user.id:
+        # Allow if: owned by user OR is a sample contract
+        if not contract or not (contract.user_id == current_user.id or contract.is_sample):
             raise HTTPException(status_code=404, detail="Contract not found")
         
         result = await get_contract_explanations(

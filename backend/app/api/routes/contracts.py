@@ -39,6 +39,7 @@ class ContractListItem(BaseModel):
     pipeline_stage: Optional[str]  # 'extraction', 'segmentation', etc.
     failed_stage: Optional[str]
     error_message: Optional[str]
+    is_sample: bool  # True if this is a shared sample contract
 
 
 # Configuration from environment
@@ -163,17 +164,32 @@ async def list_contracts(
     current_user: User = Depends(get_current_user)
 ) -> List[ContractListItem]:
     """
-    List all uploaded contracts with their processing status.
+    List user's contracts and all sample contracts.
+    
+    Returns user's own contracts first (newest first), then all sample contracts.
+    Does not return other users' private contracts or legacy contracts.
     
     Returns:
-        List of contracts with id, filename, upload date, and status
+        List of contracts with id, filename, upload date, status, and is_sample flag
     """
-    result = await db.execute(
+    # Get user's own contracts
+    user_result = await db.execute(
         select(Contract)
         .where(Contract.user_id == current_user.id)
         .order_by(Contract.uploaded_at.desc())
     )
-    contracts = result.scalars().all()
+    user_contracts = user_result.scalars().all()
+    
+    # Get all sample contracts
+    sample_result = await db.execute(
+        select(Contract)
+        .where(Contract.is_sample == True)
+        .order_by(Contract.uploaded_at.desc())
+    )
+    sample_contracts = sample_result.scalars().all()
+    
+    # Combine: user's contracts first, then samples
+    all_contracts = list(user_contracts) + list(sample_contracts)
     
     return [
         ContractListItem(
@@ -183,7 +199,8 @@ async def list_contracts(
             processing_status=c.processing_status,
             pipeline_stage=c.pipeline_stage,
             failed_stage=c.failed_stage,
-            error_message=c.error_message
+            error_message=c.error_message,
+            is_sample=c.is_sample
         )
-        for c in contracts
+        for c in all_contracts
     ]

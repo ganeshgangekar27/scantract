@@ -54,3 +54,38 @@ def pytest_sessionstart(session):
     
     # Run the check
     asyncio.run(check_database())
+
+import pytest
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+
+from app.main import app
+from app.db.database import get_db
+from tests.db_config import get_test_database_url
+
+
+@pytest.fixture
+async def db_session():
+    """Provide a clean database session for tests."""
+    test_db_url = get_test_database_url()
+    engine = create_async_engine(test_db_url, echo=False)
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    
+    async with async_session() as session:
+        yield session
+    
+    await engine.dispose()
+
+
+@pytest.fixture
+async def client(db_session):
+    """Provide an async HTTP client with database override."""
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        yield client
+    
+    app.dependency_overrides.clear()

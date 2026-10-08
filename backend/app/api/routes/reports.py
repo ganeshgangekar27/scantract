@@ -47,13 +47,14 @@ async def get_contract_report(
         }
     """
     try:
-        # Verify ownership
+        # Verify ownership or sample access
         from sqlalchemy import select
         from ...db.models import Contract
         result = await db.execute(select(Contract).where(Contract.id == contract_id))
         contract = result.scalar_one_or_none()
         
-        if not contract or contract.user_id != current_user.id:
+        # Allow if: owned by user OR is a sample contract
+        if not contract or not (contract.user_id == current_user.id or contract.is_sample):
             raise HTTPException(status_code=404, detail="Contract not found")
         
         report = await assemble_contract_report(contract_id, db)
@@ -111,13 +112,14 @@ async def get_contract_report_pdf(
         PDF file with Content-Disposition attachment header
     """
     try:
-        # Verify ownership
+        # Verify ownership or sample access
         from sqlalchemy import select
         from ...db.models import Contract
         result = await db.execute(select(Contract).where(Contract.id == contract_id))
         contract_check = result.scalar_one_or_none()
         
-        if not contract_check or contract_check.user_id != current_user.id:
+        # Allow if: owned by user OR is a sample contract
+        if not contract_check or not (contract_check.user_id == current_user.id or contract_check.is_sample):
             raise HTTPException(status_code=404, detail="Contract not found")
         
         # Assemble report
