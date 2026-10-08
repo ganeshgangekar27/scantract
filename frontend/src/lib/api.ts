@@ -191,3 +191,118 @@ export async function apiUpload<T>(
   
   return data as T;
 }
+
+/**
+ * List user's contracts and sample contracts.
+ * 
+ * @returns List of contracts with status and metadata
+ */
+export async function listContracts(): Promise<import('./types').ContractListItem[]> {
+  return apiRequest<import('./types').ContractListItem[]>('/api/contracts/list');
+}
+
+/**
+ * Get complete risk report for a contract.
+ * 
+ * @param contractId - Contract ID (integer)
+ * @returns Contract report with findings and risk summary
+ */
+export async function getReport(contractId: number): Promise<import('./types').Report> {
+  return apiRequest<import('./types').Report>(`/api/contracts/${contractId}/report`);
+}
+
+/**
+ * Download PDF report for a contract.
+ * 
+ * @param contractId - Contract ID (integer)
+ * @returns Blob containing PDF data
+ */
+export async function downloadReportPdf(contractId: number): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/contracts/${contractId}/report/pdf`;
+  const token = localStorage.getItem('scantract_token');
+  
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(url, { headers });
+  
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      const data = await response.json();
+      throw new ApiError(
+        response.status,
+        data.detail || data.error || 'Failed to download PDF'
+      );
+    }
+    throw new ApiError(response.status, `HTTP ${response.status}: ${response.statusText}`);
+  }
+  
+  return response.blob();
+}
+
+/**
+ * Upload a contract file for processing.
+ * 
+ * @param file - Contract file (PDF or DOCX)
+ * @param _contractType - Contract type (reserved for future use, not currently used by endpoint)
+ * @returns Upload response with contract ID and status
+ */
+export async function uploadContract(
+  file: File,
+  _contractType: string = 'rental'
+): Promise<import('./types').UploadResponse> {
+  const url = `${API_BASE_URL}/api/contracts/upload`;
+  const token = localStorage.getItem('scantract_token');
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  // Note: _contractType is reserved for future use
+  
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  // Do NOT set Content-Type - browser sets it with boundary
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  
+  const data = await response.json();
+  
+  if (!response.ok) {
+    if (typeof data.detail === 'string') {
+      throw new ApiError(response.status, data.detail);
+    }
+    throw new ApiError(response.status, data.error || 'Upload failed');
+  }
+  
+  return data as import('./types').UploadResponse;
+}
+
+/**
+ * Get pipeline status for a contract.
+ * 
+ * Note: There is no dedicated per-contract status endpoint.
+ * Use listContracts() and find the contract by ID to get its status.
+ * 
+ * @param contractId - Contract ID (integer)
+ * @returns Contract list item with current status
+ */
+export async function getPipelineStatus(
+  contractId: number
+): Promise<import('./types').ContractListItem> {
+  const contracts = await listContracts();
+  const contract = contracts.find((c) => c.contract_id === contractId);
+  
+  if (!contract) {
+    throw new ApiError(404, `Contract ${contractId} not found`);
+  }
+  
+  return contract;
+}
