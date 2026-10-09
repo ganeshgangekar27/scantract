@@ -17,6 +17,13 @@ from app.api.routes.contracts import upload_contract, UploadResponse
 from tests.auth_utils import create_mock_user
 
 
+# Patch check_daily_upload_limit to always return False (not exceeded) for these tests
+@pytest.fixture(autouse=True)
+def mock_upload_limit():
+    with patch("app.api.routes.contracts.check_daily_upload_limit", return_value=False):
+        yield
+
+
 # Test fixtures
 
 @pytest.fixture

@@ -55,6 +55,7 @@ services:
       # Upload Configuration
       UPLOAD_TEMP_DIR: /app/uploads/temp
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-15}
+      MAX_UPLOADS_PER_DAY: ${MAX_UPLOADS_PER_DAY:-3}
       
       # RAG Configuration
       MAX_CONTEXT_TOKENS: ${MAX_CONTEXT_TOKENS:-4000}

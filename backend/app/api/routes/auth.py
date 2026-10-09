@@ -368,3 +368,63 @@ async def reset_password(
     
     return {"message": "Password has been reset successfully"}
 
+
+
+
+@router.delete("/me/data")
+async def delete_my_data(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """
+    Delete all user data (contracts, findings, clauses) and user account.
+    
+    This action is irreversible. Deletes:
+    - All user's contracts (and related findings/clauses via cascade)
+    - The user account itself
+    
+    The JWT token becomes invalid after this operation.
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+    
+    Returns:
+        Number of contracts deleted
+    """
+    from sqlalchemy import delete as sql_delete
+    from app.db.models import Contract, Clause, RiskFinding
+    
+    # Count contracts to delete
+    result = await db.execute(
+        select(Contract)
+        .where(Contract.user_id == current_user.id)
+    )
+    contracts = result.scalars().all()
+    contract_count = len(contracts)
+    contract_ids = [c.id for c in contracts]
+    
+    # Delete related data
+    if contract_ids:
+        await db.execute(
+            sql_delete(RiskFinding).where(RiskFinding.contract_id.in_(contract_ids))
+        )
+        await db.execute(
+            sql_delete(Clause).where(Clause.contract_id.in_(contract_ids))
+        )
+        await db.execute(
+            sql_delete(Contract).where(Contract.id.in_(contract_ids))
+        )
+    
+    # Delete user
+    await db.delete(current_user)
+    await db.commit()
+    
+    logger.info(f"User deleted their data: {current_user.email} ({contract_count} contracts)")
+    
+    return {
+        "success": True,
+        "data": {
+            "deleted_contracts": contract_count
+        }
+    }
