@@ -266,6 +266,7 @@ export function UploadPage() {
               className="hidden"
               accept=".pdf,.docx"
               onChange={handleInputChange}
+              data-testid="file-input"
             />
           </div>
         )}
