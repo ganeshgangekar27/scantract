@@ -96,12 +96,148 @@ describe('usePipelinePolling', () => {
   });
 
   it('does not poll when contractId is null', () => {
-    const { result } = renderHook(() => usePipelinePolling(1));
+    const { result } = renderHook(() => usePipelinePolling(null));
 
     expect(result.current.loading).toBe(false);
     expect(api.getPipelineStatus).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(10000);
     expect(api.getPipelineStatus).not.toHaveBeenCalled();
+  });
+
+  it('stops polling when pipeline fails', async () => {
+    const mockDataProcessing: ContractListItem = {
+      contract_id: 1,
+      filename: 'test.pdf',
+      uploaded_at: '2024-01-01T00:00:00Z',
+      processing_status: 'processing',
+      pipeline_stage: 'classifying',
+      failed_stage: null,
+      error_message: null,
+      is_sample: false,
+    };
+
+    const mockDataFailed: ContractListItem = {
+      ...mockDataProcessing,
+      processing_status: 'failed',
+      pipeline_stage: 'failed',
+      failed_stage: 'classifying',
+      error_message: 'Classification failed',
+    };
+
+    vi.mocked(api.getPipelineStatus)
+      .mockResolvedValueOnce(mockDataProcessing)
+      .mockResolvedValueOnce(mockDataFailed);
+
+    const { result } = renderHook(() => usePipelinePolling(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(api.getPipelineStatus).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(api.getPipelineStatus).toHaveBeenCalledTimes(2);
+    expect(result.current.data?.pipeline_stage).toBe('failed');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+
+    expect(api.getPipelineStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops polling on unmount', async () => {
+    const mockData: ContractListItem = {
+      contract_id: 1,
+      filename: 'test.pdf',
+      uploaded_at: '2024-01-01T00:00:00Z',
+      processing_status: 'processing',
+      pipeline_stage: 'classifying',
+      failed_stage: null,
+      error_message: null,
+      is_sample: false,
+    };
+
+    vi.mocked(api.getPipelineStatus).mockResolvedValue(mockData);
+
+    const { result, unmount } = renderHook(() => usePipelinePolling(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(api.getPipelineStatus).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+
+    expect(api.getPipelineStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('times out after 10 minutes', async () => {
+    const mockData: ContractListItem = {
+      contract_id: 1,
+      filename: 'test.pdf',
+      uploaded_at: '2024-01-01T00:00:00Z',
+      processing_status: 'processing',
+      pipeline_stage: 'classifying',
+      failed_stage: null,
+      error_message: null,
+      is_sample: false,
+    };
+
+    vi.mocked(api.getPipelineStatus).mockResolvedValue(mockData);
+
+    const { result } = renderHook(() => usePipelinePolling(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+    });
+
+    expect(result.current.error).toBe('Processing timeout - please check back later');
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('backs off to 6000ms after 40 polls', async () => {
+    const mockData: ContractListItem = {
+      contract_id: 1,
+      filename: 'test.pdf',
+      uploaded_at: '2024-01-01T00:00:00Z',
+      processing_status: 'processing',
+      pipeline_stage: 'classifying',
+      failed_stage: null,
+      error_message: null,
+      is_sample: false,
+    };
+
+    vi.mocked(api.getPipelineStatus).mockResolvedValue(mockData);
+
+    const { result } = renderHook(() => usePipelinePolling(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(40 * 3000);
+    });
+
+    const callsBefore = vi.mocked(api.getPipelineStatus).mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(vi.mocked(api.getPipelineStatus).mock.calls.length).toBe(callsBefore);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(vi.mocked(api.getPipelineStatus).mock.calls.length).toBe(callsBefore + 1);
   });
 });

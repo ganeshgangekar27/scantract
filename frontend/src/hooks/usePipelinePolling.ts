@@ -51,6 +51,7 @@ export function usePipelinePolling(contractId: number | null): UsePipelinePollin
       const elapsed = Date.now() - startTimeRef.current;
       if (elapsed >= MAX_DURATION) {
         setIsTimeout(true);
+        setError('Processing timeout - please check back later');
         setLoading(false);
         if (intervalIdRef.current) {
           clearInterval(intervalIdRef.current);
