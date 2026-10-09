@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { Button, Card } from '../components/ui';
-import { getReport, downloadReportPdf } from '../lib/api';
+import { getReport, downloadReportPdf, ApiError } from '../lib/api';
 import { riskScore, riskLabel, filterBySeverity, countBySeverity } from '../lib/risk';
 import type { Report } from '../lib/types';
 
@@ -31,6 +31,7 @@ export function ReportView() {
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [reloadCounter, setReloadCounter] = useState(0);
 
   // Load report on mount
   useEffect(() => {
@@ -41,14 +42,16 @@ export function ReportView() {
         setReport(data);
         setError(null);
       } catch (err) {
-        if (err instanceof Error) {
-          if (err.message.includes('409')) {
+        if (err instanceof ApiError) {
+          if (err.status === 409) {
             setError('Analysis not finished yet');
-          } else if (err.message.includes('404')) {
+          } else if (err.status === 404) {
             setError('Contract not found');
           } else {
             setError(err.message);
           }
+        } else if (err instanceof Error) {
+          setError(err.message);
         } else {
           setError('Failed to load report');
         }
@@ -58,13 +61,11 @@ export function ReportView() {
     };
 
     loadReport();
-  }, [contractIdNum]);
+  }, [contractIdNum, reloadCounter]);
 
   const handleRetry = () => {
     setError(null);
-    setLoading(true);
-    // Trigger reload by resetting state
-    window.location.reload();
+    setReloadCounter(prev => prev + 1);
   };
 
   const handleDownloadPDF = async () => {
@@ -298,119 +299,193 @@ export function ReportView() {
           </button>
         </div>
 
-        {/* Risky Findings */}
-        <div className="space-y-4 mb-6">
-          <h2 className="text-xl font-bold text-text-primary">Risky Clauses</h2>
-          {filteredFindings.length === 0 ? (
-            <Card className="p-6 text-center">
-              <p className="text-text-secondary">
-                No {severityFilter !== 'all' ? severityFilter + ' ' : ''}findings found
-              </p>
-            </Card>
+        {/* Why Flagged Panel */}
+        <Card className="p-6 mb-6 sticky top-4 z-10 lg:hidden">
+          {selectedFindingId ? (
+            (() => {
+              const selected = report.risky_clauses.find(f => f.finding_id === selectedFindingId);
+              if (!selected) return null;
+              return (
+                <>
+                  <h3 className="text-lg font-bold text-text-primary mb-2">Why Flagged</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-text-secondary mb-1">Reason</p>
+                      <p className="text-text-primary">{selected.reason}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-text-secondary mb-1">Explanation</p>
+                      <p className="text-text-secondary">{selected.explanation}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-text-secondary mb-1">Legal Reference</p>
+                      <p className="text-text-tertiary text-sm">{selected.formatted_citation}</p>
+                    </div>
+                  </div>
+                </>
+              );
+            })()
           ) : (
-            filteredFindings.map((finding) => (
-              <Card
-                key={finding.finding_id}
-                id={`finding-${finding.finding_id}`}
-                className={`p-6 cursor-pointer transition-all ${
-                  selectedFindingId === finding.finding_id
-                    ? 'ring-2 ring-primary'
-                    : 'hover:shadow-md'
-                }`}
-                onClick={() => handleFindingClick(finding.finding_id)}
-              >
-                <div className="flex items-start gap-4">
-                  {/* Severity Badge */}
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${
-                      finding.severity === 'high'
-                        ? 'bg-severity-high-bg text-severity-high'
-                        : finding.severity === 'medium'
-                        ? 'bg-severity-medium-bg text-severity-medium'
-                        : 'bg-severity-low-bg text-severity-low'
-                    }`}
-                  >
-                    {finding.severity}
-                  </span>
-
-                  <div className="flex-1">
-                    {/* Clause Number */}
-                    <p className="text-sm font-semibold text-text-secondary mb-2">
-                      Clause {finding.clause_number}
-                    </p>
-
-                    {/* Clause Text */}
-                    <p className="text-text-primary mb-3 italic">
-                      "{finding.clause_text}"
-                    </p>
-
-                    {/* Reason */}
-                    <p className="text-text-primary font-medium mb-2">
-                      {finding.reason}
-                    </p>
-
-                    {/* Explanation */}
-                    <p className="text-text-secondary mb-3">
-                      {finding.explanation}
-                    </p>
-
-                    {/* Citation */}
-                    <p className="text-sm text-text-tertiary">
-                      {finding.formatted_citation}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))
+            <p className="text-text-secondary text-center">
+              Select a finding to see why it was flagged
+            </p>
           )}
-        </div>
+        </Card>
 
-        {/* Missing Clauses */}
-        {report.missing_clauses.length > 0 && (
-          <div className="space-y-4 mb-6">
-            <h2 className="text-xl font-bold text-text-primary">Missing Clauses</h2>
-            {report.missing_clauses.map((missing) => (
-              <Card key={missing.finding_id} className="p-6">
-                <div className="flex items-start gap-4">
-                  {/* Severity Badge */}
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${
-                      missing.severity === 'high'
-                        ? 'bg-severity-high-bg text-severity-high'
-                        : missing.severity === 'medium'
-                        ? 'bg-severity-medium-bg text-severity-medium'
-                        : 'bg-severity-low-bg text-severity-low'
+        {/* Two-column layout for desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: Findings */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Risky Findings */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-text-primary">Risky Clauses</h2>
+              {filteredFindings.length === 0 ? (
+                <Card className="p-6 text-center">
+                  <p className="text-text-secondary">
+                    No {severityFilter !== 'all' ? severityFilter + ' ' : ''}findings found
+                  </p>
+                </Card>
+              ) : (
+                filteredFindings.map((finding) => (
+                  <Card
+                    key={finding.finding_id}
+                    id={`finding-${finding.finding_id}`}
+                    className={`p-6 cursor-pointer transition-all ${
+                      selectedFindingId === finding.finding_id
+                        ? 'ring-2 ring-primary'
+                        : 'hover:shadow-md'
                     }`}
+                    onClick={() => handleFindingClick(finding.finding_id)}
                   >
-                    {missing.severity}
-                  </span>
+                    <div className="flex items-start gap-4">
+                      {/* Severity Badge */}
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${
+                          finding.severity === 'high'
+                            ? 'bg-severity-high-bg text-severity-high'
+                            : finding.severity === 'medium'
+                            ? 'bg-severity-medium-bg text-severity-medium'
+                            : 'bg-severity-low-bg text-severity-low'
+                        }`}
+                      >
+                        {finding.severity}
+                      </span>
 
-                  <div className="flex-1">
-                    {/* Expected Clause Type */}
-                    <p className="text-lg font-semibold text-text-primary mb-2">
-                      {missing.expected_clause_type}
-                    </p>
+                      <div className="flex-1">
+                        {/* Clause Number */}
+                        <p className="text-sm font-semibold text-text-secondary mb-2">
+                          Clause {finding.clause_number}
+                        </p>
 
-                    {/* Reason */}
-                    <p className="text-text-primary font-medium mb-2">
-                      {missing.reason}
-                    </p>
+                        {/* Clause Text */}
+                        <p className="text-text-primary mb-3 italic">
+                          "{finding.clause_text}"
+                        </p>
 
-                    {/* Explanation */}
-                    <p className="text-text-secondary mb-3">
-                      {missing.explanation}
-                    </p>
+                        {/* Reason */}
+                        <p className="text-text-primary font-medium mb-2">
+                          {finding.reason}
+                        </p>
 
-                    {/* Citation */}
-                    <p className="text-sm text-text-tertiary">
-                      {missing.formatted_citation}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                        {/* Explanation - Hidden on desktop when panel shows */}
+                        <p className="text-text-secondary mb-3 lg:hidden">
+                          {finding.explanation}
+                        </p>
+
+                        {/* Citation - Hidden on desktop when panel shows */}
+                        <p className="text-sm text-text-tertiary lg:hidden">
+                          {finding.formatted_citation}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            {/* Missing Clauses */}
+            {report.missing_clauses.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-text-primary">Missing Clauses</h2>
+                {report.missing_clauses.map((missing) => (
+                  <Card key={missing.finding_id} className="p-6">
+                    <div className="flex items-start gap-4">
+                      {/* Severity Badge */}
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${
+                          missing.severity === 'high'
+                            ? 'bg-severity-high-bg text-severity-high'
+                            : missing.severity === 'medium'
+                            ? 'bg-severity-medium-bg text-severity-medium'
+                            : 'bg-severity-low-bg text-severity-low'
+                        }`}
+                      >
+                        {missing.severity}
+                      </span>
+
+                      <div className="flex-1">
+                        {/* Expected Clause Type */}
+                        <p className="text-lg font-semibold text-text-primary mb-2">
+                          {missing.expected_clause_type}
+                        </p>
+
+                        {/* Reason */}
+                        <p className="text-text-primary font-medium mb-2">
+                          {missing.reason}
+                        </p>
+
+                        {/* Explanation */}
+                        <p className="text-text-secondary mb-3">
+                          {missing.explanation}
+                        </p>
+
+                        {/* Citation */}
+                        <p className="text-sm text-text-tertiary">
+                          {missing.formatted_citation}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Right: Why Flagged Panel (desktop only) */}
+          <div className="hidden lg:block">
+            <Card className="p-6 sticky top-4">
+              {selectedFindingId ? (
+                (() => {
+                  const selected = report.risky_clauses.find(f => f.finding_id === selectedFindingId);
+                  if (!selected) return null;
+                  return (
+                    <>
+                      <h3 className="text-lg font-bold text-text-primary mb-4">Why Flagged</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm font-semibold text-text-secondary mb-1">Reason</p>
+                          <p className="text-text-primary">{selected.reason}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-text-secondary mb-1">Explanation</p>
+                          <p className="text-text-secondary">{selected.explanation}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-text-secondary mb-1">Legal Reference</p>
+                          <p className="text-text-tertiary text-sm">{selected.formatted_citation}</p>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()
+              ) : (
+                <p className="text-text-secondary text-center py-8">
+                  Select a finding to see why it was flagged
+                </p>
+              )}
+            </Card>
+          </div>
+        </div>
 
         {/* Disclaimer */}
         <Card className="p-4 bg-background-secondary">

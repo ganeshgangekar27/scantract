@@ -10,6 +10,14 @@ import type { Report } from '../lib/types';
 vi.mock('../lib/api', () => ({
   getReport: vi.fn(),
   downloadReportPdf: vi.fn(),
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.name = 'ApiError';
+      this.status = status;
+    }
+  },
 }));
 
 import * as api from '../lib/api';
@@ -80,6 +88,9 @@ const mockReport: Report = {
 describe('ReportView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Mock scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn();
 
     // Mock useAuth to return authenticated user
     vi.mocked(AuthContext.useAuth).mockReturnValue({
@@ -167,7 +178,8 @@ describe('ReportView', () => {
   });
 
   it('409 shows not-finished message', async () => {
-    vi.mocked(api.getReport).mockRejectedValueOnce(new Error('409: Analysis in progress'));
+    const ApiError = (await import('../lib/api')).ApiError;
+    vi.mocked(api.getReport).mockRejectedValueOnce(new ApiError(409, 'Analysis in progress'));
 
     renderReportView();
 
@@ -176,7 +188,8 @@ describe('ReportView', () => {
   });
 
   it('404 shows not-found message', async () => {
-    vi.mocked(api.getReport).mockRejectedValueOnce(new Error('404: Not found'));
+    const ApiError = (await import('../lib/api')).ApiError;
+    vi.mocked(api.getReport).mockRejectedValueOnce(new ApiError(404, 'Not found'));
 
     renderReportView();
 
@@ -215,5 +228,53 @@ describe('ReportView', () => {
         /ScanTract is an educational tool, not legal advice\. The knowledge base is sample data and has not been verified by a lawyer\./i
       )
     ).toBeInTheDocument();
+  });
+
+  it('clicking finding shows why-flagged panel with reason', async () => {
+    vi.mocked(api.getReport).mockResolvedValueOnce(mockReport);
+
+    renderReportView();
+
+    await screen.findByText('sample-rental-agreement.pdf');
+
+    // Initially panel shows hint (appears twice - mobile and desktop)
+    const hints = screen.getAllByText(/Select a finding to see why it was flagged/i);
+    expect(hints.length).toBeGreaterThanOrEqual(1);
+
+    // Click first finding
+    const firstFinding = screen.getByText('Maintenance obligation is unusually broad');
+    await userEvent.click(firstFinding);
+
+    // Panel should show "Why Flagged" (appears twice - mobile and desktop)
+    const panels = await screen.findAllByText('Why Flagged');
+    expect(panels.length).toBeGreaterThanOrEqual(1);
+    
+    // Should show the reason in the panel
+    const reasons = screen.getAllByText('Maintenance obligation is unusually broad');
+    expect(reasons.length).toBeGreaterThan(1); // Once in card, once in panel
+  });
+
+  it('clicking another finding replaces panel content', async () => {
+    vi.mocked(api.getReport).mockResolvedValueOnce(mockReport);
+
+    renderReportView();
+
+    await screen.findByText('sample-rental-agreement.pdf');
+
+    // Click first finding
+    const firstFinding = screen.getByText('Maintenance obligation is unusually broad');
+    await userEvent.click(firstFinding);
+
+    // "Why Flagged" appears in both mobile and desktop panels
+    const panels = await screen.findAllByText('Why Flagged');
+    expect(panels.length).toBeGreaterThanOrEqual(1);
+
+    // Click second finding
+    const secondFinding = screen.getByText('Short notice period');
+    await userEvent.click(secondFinding);
+
+    // Panel should now show second finding's content (appears in multiple places)
+    const explanations = screen.getAllByText(/Notice period is below standard 30-day requirement/i);
+    expect(explanations.length).toBeGreaterThan(0);
   });
 });
