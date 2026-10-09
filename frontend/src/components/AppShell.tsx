@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X, LayoutDashboard, Upload, FileText, Settings, LogOut } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '../auth/AuthContext';
@@ -24,7 +24,6 @@ export function AppShell({ children, title }: { children: ReactNode; title: stri
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   
-  const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   
@@ -54,25 +53,28 @@ export function AppShell({ children, title }: { children: ReactNode; title: stri
         <nav className="flex-1 px-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
             
             return (
-              <Link
+              <NavLink
                 key={item.path}
                 to={item.path}
-                className={clsx(
+                className={({ isActive }) => clsx(
                   'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative',
                   isActive
                     ? 'bg-primary/10 text-primary font-medium'
                     : 'text-text-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
                 )}
               >
-                {isActive && (
-                  <div className="absolute left-0 w-1 h-8 bg-primary rounded-r" />
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <div className="absolute left-0 w-1 h-8 bg-primary rounded-r" />
+                    )}
+                    <Icon className="w-5 h-5" />
+                    {item.label}
+                  </>
                 )}
-                <Icon className="w-5 h-5" />
-                {item.label}
-              </Link>
+              </NavLink>
             );
           })}
         </nav>
@@ -99,14 +101,13 @@ export function AppShell({ children, title }: { children: ReactNode; title: stri
             <nav className="px-4 space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location.pathname === item.path;
                 
                 return (
-                  <Link
+                  <NavLink
                     key={item.path}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    className={clsx(
+                    className={({ isActive }) => clsx(
                       'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
                       isActive
                         ? 'bg-primary/10 text-primary font-medium'
@@ -115,7 +116,7 @@ export function AppShell({ children, title }: { children: ReactNode; title: stri
                   >
                     <Icon className="w-5 h-5" />
                     {item.label}
-                  </Link>
+                  </NavLink>
                 );
               })}
             </nav>
