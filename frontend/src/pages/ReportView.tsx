@@ -1,99 +1,424 @@
+/**
+ * ReportView - Display contract analysis results with risk assessment, findings, and filters.
+ * 
+ * Features:
+ * - Risk ring visualization with score/label
+ * - Severity filter chips (All/High/Medium/Low)
+ * - Risky findings list with clause details
+ * - Missing clauses section
+ * - PDF download
+ * - Click to select/highlight findings
+ */
+
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useState } from 'react';
-import { useContractReport } from '../hooks/useContractReport';
-import { RiskSummaryHeader } from '../components/RiskSummaryHeader';
-import { ContractText } from '../components/ContractText';
-import { ExplanationPanel } from '../components/ExplanationPanel';
-import { MissingClausesPanel } from '../components/MissingClausesPanel';
 import { AppShell } from '../components/AppShell';
+import { Button, Card } from '../components/ui';
+import { getReport, downloadReportPdf } from '../lib/api';
+import { riskScore, riskLabel, filterBySeverity, countBySeverity } from '../lib/risk';
+import type { Report } from '../lib/types';
+
+type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
 
 export function ReportView() {
   const { contractId } = useParams<{ contractId: string }>();
   const contractIdNum = parseInt(contractId || '0', 10);
-  
-  const { report, loading, error } = useContractReport(contractIdNum);
-  const [selectedClauseId, setSelectedClauseId] = useState<number | null>(null);
-  
-  // Find selected clause in risky_clauses
-  const selectedClause = selectedClauseId
-    ? report?.risky_clauses.find(c => c.clause_id === selectedClauseId) || null
-    : null;
-  
-  // Loading state
+
+  const [report, setReport] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // Load report on mount
+  useEffect(() => {
+    const loadReport = async () => {
+      try {
+        setLoading(true);
+        const data = await getReport(contractIdNum);
+        setReport(data);
+        setError(null);
+      } catch (err) {
+        if (err instanceof Error) {
+          if (err.message.includes('409')) {
+            setError('Analysis not finished yet');
+          } else if (err.message.includes('404')) {
+            setError('Contract not found');
+          } else {
+            setError(err.message);
+          }
+        } else {
+          setError('Failed to load report');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReport();
+  }, [contractIdNum]);
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    // Trigger reload by resetting state
+    window.location.reload();
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!report) return;
+
+    try {
+      setDownloading(true);
+      setDownloadError(null);
+      
+      const blob = await downloadReportPdf(contractIdNum);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${report.filename}-report.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : 'Failed to download PDF');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleFindingClick = (findingId: string) => {
+    setSelectedFindingId(findingId);
+    
+    // Scroll to finding (guarded for jsdom)
+    if (typeof document !== 'undefined') {
+      const element = document.getElementById(`finding-${findingId}`);
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // Loading skeleton
   if (loading) {
     return (
       <AppShell title="Contract Report">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p className="text-gray-600">Loading report...</p>
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-text-secondary">Loading report...</p>
           </div>
         </div>
       </AppShell>
     );
   }
-  
+
   // Error state
   if (error) {
     return (
       <AppShell title="Contract Report">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Error loading report</h3>
-              <p className="mt-2 text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
+        <Card className="p-6 bg-severity-high-bg border-severity-high-border">
+          <h3 className="text-lg font-semibold text-severity-high mb-2">Error</h3>
+          <p className="text-text-primary mb-4">{error}</p>
+          <Button onClick={handleRetry} variant="secondary">
+            Retry
+          </Button>
+        </Card>
       </AppShell>
     );
   }
-  
-  // No report (shouldn't happen if no error)
+
+  // No report
   if (!report) {
     return (
       <AppShell title="Contract Report">
         <div className="text-center py-12">
-          <p className="text-gray-600">Report not found</p>
+          <p className="text-text-secondary">Report not found</p>
         </div>
       </AppShell>
     );
   }
+
+  // Calculate metrics
+  const score = riskScore(report.risk_summary);
+  const label = riskLabel(score);
+  const counts = countBySeverity([...report.risky_clauses, ...report.missing_clauses]);
   
+  // Filter findings
+  const filteredFindings = severityFilter === 'all'
+    ? report.risky_clauses
+    : filterBySeverity(report.risky_clauses, severityFilter);
+
   return (
     <AppShell title="Contract Report">
-      <div className="report-view">
-        <RiskSummaryHeader 
-          report={report} 
-          contractId={contractIdNum}
-        />
-      
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          <div className="lg:col-span-2">
-            <ContractText
-              clauses={report.all_clauses}
-              selectedClauseId={selectedClauseId}
-              onClauseClick={setSelectedClauseId}
-            />
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <Card className="p-6 mb-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary mb-1">
+                {report.filename}
+              </h1>
+              <p className="text-sm text-text-secondary">
+                Uploaded: {new Date(report.upload_date).toLocaleDateString()}
+              </p>
+            </div>
+
+            {/* Risk Ring */}
+            <div className="flex items-center gap-4">
+              <div className="relative w-24 h-24">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                  {/* Background circle */}
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    className="text-gray-200 dark:text-gray-700"
+                  />
+                  {/* Progress circle */}
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    strokeDasharray={`${score * 2.51} 251`}
+                    className={
+                      label === 'High'
+                        ? 'text-severity-high'
+                        : label === 'Medium'
+                        ? 'text-severity-medium'
+                        : 'text-severity-low'
+                    }
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-2xl font-bold text-text-primary">{score}</span>
+                  <span className="text-xs text-text-secondary">/ 100</span>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-text-secondary">Risk Level</p>
+                <p className={`text-lg font-semibold ${
+                  label === 'High'
+                    ? 'text-severity-high'
+                    : label === 'Medium'
+                    ? 'text-severity-medium'
+                    : 'text-severity-low'
+                }`}>
+                  {label}
+                </p>
+              </div>
+            </div>
           </div>
-        
-          <div>
-            <MissingClausesPanel missingClauses={report.missing_clauses} />
+
+          {/* Counts */}
+          <div className="grid grid-cols-4 gap-4 mb-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-text-primary">{counts.high}</p>
+              <p className="text-sm text-text-secondary">High</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-text-primary">{counts.medium}</p>
+              <p className="text-sm text-text-secondary">Medium</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-text-primary">{counts.low}</p>
+              <p className="text-sm text-text-secondary">Low</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-text-primary">
+                {report.missing_clauses.length}
+              </p>
+              <p className="text-sm text-text-secondary">Missing</p>
+            </div>
           </div>
+
+          {/* PDF Download */}
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+              variant="secondary"
+            >
+              {downloading ? 'Downloading...' : 'Download PDF'}
+            </Button>
+            {downloadError && (
+              <p className="text-sm text-severity-high">{downloadError}</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Filter Chips */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setSeverityFilter('all')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              severityFilter === 'all'
+                ? 'bg-primary text-white'
+                : 'bg-surface border border-border text-text-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            All ({report.risky_clauses.length})
+          </button>
+          <button
+            onClick={() => setSeverityFilter('high')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              severityFilter === 'high'
+                ? 'bg-severity-high text-white'
+                : 'bg-surface border border-border text-text-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            High ({counts.high})
+          </button>
+          <button
+            onClick={() => setSeverityFilter('medium')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              severityFilter === 'medium'
+                ? 'bg-severity-medium text-white'
+                : 'bg-surface border border-border text-text-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            Medium ({counts.medium})
+          </button>
+          <button
+            onClick={() => setSeverityFilter('low')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              severityFilter === 'low'
+                ? 'bg-severity-low text-white'
+                : 'bg-surface border border-border text-text-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            Low ({counts.low})
+          </button>
         </div>
-      
-        <ExplanationPanel
-          clause={selectedClause}
-          onClose={() => setSelectedClauseId(null)}
-        />
+
+        {/* Risky Findings */}
+        <div className="space-y-4 mb-6">
+          <h2 className="text-xl font-bold text-text-primary">Risky Clauses</h2>
+          {filteredFindings.length === 0 ? (
+            <Card className="p-6 text-center">
+              <p className="text-text-secondary">
+                No {severityFilter !== 'all' ? severityFilter + ' ' : ''}findings found
+              </p>
+            </Card>
+          ) : (
+            filteredFindings.map((finding) => (
+              <Card
+                key={finding.finding_id}
+                id={`finding-${finding.finding_id}`}
+                className={`p-6 cursor-pointer transition-all ${
+                  selectedFindingId === finding.finding_id
+                    ? 'ring-2 ring-primary'
+                    : 'hover:shadow-md'
+                }`}
+                onClick={() => handleFindingClick(finding.finding_id)}
+              >
+                <div className="flex items-start gap-4">
+                  {/* Severity Badge */}
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${
+                      finding.severity === 'high'
+                        ? 'bg-severity-high-bg text-severity-high'
+                        : finding.severity === 'medium'
+                        ? 'bg-severity-medium-bg text-severity-medium'
+                        : 'bg-severity-low-bg text-severity-low'
+                    }`}
+                  >
+                    {finding.severity}
+                  </span>
+
+                  <div className="flex-1">
+                    {/* Clause Number */}
+                    <p className="text-sm font-semibold text-text-secondary mb-2">
+                      Clause {finding.clause_number}
+                    </p>
+
+                    {/* Clause Text */}
+                    <p className="text-text-primary mb-3 italic">
+                      "{finding.clause_text}"
+                    </p>
+
+                    {/* Reason */}
+                    <p className="text-text-primary font-medium mb-2">
+                      {finding.reason}
+                    </p>
+
+                    {/* Explanation */}
+                    <p className="text-text-secondary mb-3">
+                      {finding.explanation}
+                    </p>
+
+                    {/* Citation */}
+                    <p className="text-sm text-text-tertiary">
+                      {finding.formatted_citation}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* Missing Clauses */}
+        {report.missing_clauses.length > 0 && (
+          <div className="space-y-4 mb-6">
+            <h2 className="text-xl font-bold text-text-primary">Missing Clauses</h2>
+            {report.missing_clauses.map((missing) => (
+              <Card key={missing.finding_id} className="p-6">
+                <div className="flex items-start gap-4">
+                  {/* Severity Badge */}
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${
+                      missing.severity === 'high'
+                        ? 'bg-severity-high-bg text-severity-high'
+                        : missing.severity === 'medium'
+                        ? 'bg-severity-medium-bg text-severity-medium'
+                        : 'bg-severity-low-bg text-severity-low'
+                    }`}
+                  >
+                    {missing.severity}
+                  </span>
+
+                  <div className="flex-1">
+                    {/* Expected Clause Type */}
+                    <p className="text-lg font-semibold text-text-primary mb-2">
+                      {missing.expected_clause_type}
+                    </p>
+
+                    {/* Reason */}
+                    <p className="text-text-primary font-medium mb-2">
+                      {missing.reason}
+                    </p>
+
+                    {/* Explanation */}
+                    <p className="text-text-secondary mb-3">
+                      {missing.explanation}
+                    </p>
+
+                    {/* Citation */}
+                    <p className="text-sm text-text-tertiary">
+                      {missing.formatted_citation}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Disclaimer */}
+        <Card className="p-4 bg-background-secondary">
+          <p className="text-sm text-text-secondary text-center">
+            ScanTract is an educational tool, not legal advice. The knowledge base is sample
+            data and has not been verified by a lawyer.
+          </p>
+        </Card>
       </div>
     </AppShell>
   );
