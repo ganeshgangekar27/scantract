@@ -31,6 +31,13 @@ describe('App routing', () => {
   });
 
   it('renders Dashboard page at /dashboard', async () => {
+    // Mock listContracts to return empty array for dashboard
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ success: true, data: [] }),
+    });
+    
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <AuthProvider>
@@ -47,9 +54,8 @@ describe('App routing', () => {
     );
     
     expect(await screen.findByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
-    expect(await screen.findByText(/welcome to scantract/i)).toBeInTheDocument();
-    expect(screen.queryByText(/pipeline status/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/no contracts yet/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/let's analyze your first contract/i)).toBeInTheDocument();
+    expect(screen.queryByText(/drag and drop your contract here/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/account settings and preferences/i)).not.toBeInTheDocument();
   });
 
@@ -77,6 +83,13 @@ describe('App routing', () => {
   });
 
   it('renders Contracts page at /contracts', async () => {
+    // Mock listContracts to return empty array
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ success: true, data: [] }),
+    });
+    
     render(
       <MemoryRouter initialEntries={['/contracts']}>
         <AuthProvider>
@@ -93,9 +106,9 @@ describe('App routing', () => {
     );
     
     expect(await screen.findByRole('heading', { name: /my contracts/i })).toBeInTheDocument();
-    expect(await screen.findByText(/no contracts yet/i)).toBeInTheDocument();
-    expect(screen.queryByText(/welcome to scantract/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/pipeline status/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/upload your first contract/i)).toBeInTheDocument();
+    expect(screen.queryByText(/let's analyze your first contract/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/drag and drop your contract here/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/account settings and preferences/i)).not.toBeInTheDocument();
   });
 
