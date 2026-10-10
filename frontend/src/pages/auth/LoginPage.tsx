@@ -41,6 +41,13 @@ export function LoginPage() {
         } else {
           toast.error(err.message);
         }
+      } else if (err instanceof Error) {
+        // Network or fetch errors
+        if (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message.includes('network')) {
+          toast.error('Cannot reach the server. Please check your connection.');
+        } else {
+          toast.error(err.message);
+        }
       } else {
         toast.error('An unexpected error occurred');
       }

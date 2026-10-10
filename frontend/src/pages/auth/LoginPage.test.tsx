@@ -159,4 +159,24 @@ describe('LoginPage', () => {
     renderLoginPage();
     expect(screen.getByText(/forgot password\?/i)).toBeInTheDocument();
   });
+
+  it('shows network error message when fetch fails', async () => {
+    const user = userEvent.setup();
+    
+    // Mock fetch to throw a network error
+    vi.mocked(globalThis.fetch).mockRejectedValue(new TypeError('Failed to fetch'));
+    
+    renderLoginPage();
+    
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: /log in/i }));
+    
+    // Import toast to check it was called
+    const { toast } = await import('sonner');
+    
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Cannot reach the server. Please check your connection.');
+    });
+  });
 });
