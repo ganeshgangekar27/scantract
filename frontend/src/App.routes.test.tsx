@@ -128,7 +128,7 @@ describe('App routing', () => {
       </MemoryRouter>
     );
     
-    expect(await screen.findByText(/account settings and preferences/i)).toBeInTheDocument();
+    expect(await screen.findByText(/danger zone/i)).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { name: /settings/i })[0]).toBeInTheDocument();
     expect(screen.queryByText(/welcome to scantract/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/drag and drop your contract here/i)).not.toBeInTheDocument();

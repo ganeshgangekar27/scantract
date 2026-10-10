@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { clsx } from 'clsx';
 import { Loader2 } from 'lucide-react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -24,6 +24,7 @@ export function Button({
     primary: 'bg-gradient-to-r from-primary to-primary-dark text-white hover:shadow-lg hover:-translate-y-0.5 active:scale-95 disabled:hover:shadow-none disabled:hover:translate-y-0',
     secondary: 'bg-surface border border-border text-text-primary hover:bg-gray-50 active:scale-95',
     ghost: 'text-text-primary hover:bg-gray-100 active:scale-95',
+    danger: 'bg-red-600 text-white hover:bg-red-700 active:scale-95 disabled:hover:bg-red-600',
   };
   
   return (
