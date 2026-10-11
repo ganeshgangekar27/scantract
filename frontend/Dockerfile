@@ -10,6 +10,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Remove .env.production to prevent absolute API URL from being baked into build
+RUN rm -f .env.production
+
 # Build production bundle
 RUN npm run build
 
