@@ -69,7 +69,18 @@ async def run_full_pipeline(
         
     except Exception as e:
         logger.error(f"❌ Pipeline failed for contract {contract_id}: {e}", exc_info=True)
-        # Error already recorded in specific stage handler
+        # If the stage handlers didn't catch it, or contract not yet failed, mark as failed
+        if contract.pipeline_stage != 'failed':
+            contract.pipeline_stage = 'failed'
+            contract.processing_status = 'failed'
+            if not contract.error_message:
+                contract.error_message = friendly_error(e)
+            # Leave failed_stage as is if already set
+            try:
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                await db.commit()
         raise
 
 
@@ -118,6 +129,7 @@ async def _run_classification_stage(contract: Contract, db: AsyncSession) -> Non
         
     except Exception as e:
         contract.pipeline_stage = 'failed'
+        contract.processing_status = 'failed'
         contract.failed_stage = 'classifying'
         contract.error_message = friendly_error(e)
         await db.commit()
@@ -161,6 +173,7 @@ async def _run_risk_detection_stage(contract: Contract, db: AsyncSession) -> Non
         
     except Exception as e:
         contract.pipeline_stage = 'failed'
+        contract.processing_status = 'failed'
         contract.failed_stage = 'detecting_risks'
         contract.error_message = friendly_error(e)
         await db.commit()
@@ -213,6 +226,7 @@ async def _run_explanation_stage(contract: Contract, db: AsyncSession) -> None:
         if missing_count > 0:
             # Some explanations are missing or invalid
             contract.pipeline_stage = 'failed'
+            contract.processing_status = 'failed'
             contract.failed_stage = 'generating_explanations'
             error_msg = f"Explanations missing or invalid for {missing_count} finding(s)"
             contract.error_message = friendly_error(error_msg)
@@ -227,6 +241,7 @@ async def _run_explanation_stage(contract: Contract, db: AsyncSession) -> None:
         # If not already set to failed above
         if contract.pipeline_stage != 'failed':
             contract.pipeline_stage = 'failed'
+            contract.processing_status = 'failed'
             contract.failed_stage = 'generating_explanations'
             contract.error_message = friendly_error(e)
             await db.commit()

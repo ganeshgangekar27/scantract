@@ -35,7 +35,7 @@ async def process_contract(
     6. Update Contract:
        - full_text = normalized_text
        - page_count = extracted_page_count
-       - processing_status = 'completed' or 'failed'
+       - processing_status = 'processing' (orchestrator sets 'completed' when full pipeline finishes)
        - error_message if failed
     7. Clean up temp file (optional: keep for debugging)
     
@@ -96,7 +96,7 @@ async def process_contract(
             # Update Contract with results
             contract.full_text = normalized_text
             contract.page_count = page_count
-            contract.processing_status = 'completed'
+            contract.processing_status = 'processing'
             contract.pipeline_stage = 'segmented'
             contract.error_message = None
             
