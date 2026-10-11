@@ -1,7 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { AuthProvider } from './auth/AuthContext';
+import { AuthProvider, useAuth } from './auth/AuthContext';
 import { ProtectedRoute, PublicOnlyRoute } from './auth/ProtectedRoute';
+import { Skeleton } from './components/ui';
+
+// Public pages
+import { LandingPage } from './pages/LandingPage';
 
 // Auth pages
 import { LoginPage } from './pages/auth/LoginPage';
@@ -17,6 +21,20 @@ import { ReportView } from './pages/ReportView';
 import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
+function RootRoute() {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Skeleton width="300px" height="200px" />
+      </div>
+    );
+  }
+  
+  return user ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -24,6 +42,9 @@ function App() {
         <Toaster position="top-right" richColors />
         
         <Routes>
+          {/* Root - Landing or Dashboard based on auth */}
+          <Route path="/" element={<RootRoute />} />
+          
           {/* Public routes */}
           <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
           <Route path="/signup" element={<PublicOnlyRoute><SignupPage /></PublicOnlyRoute>} />
@@ -37,9 +58,6 @@ function App() {
           <Route path="/contracts/:contractId" element={<ProtectedRoute><ReportView /></ProtectedRoute>} />
           <Route path="/report/:contractId" element={<Navigate to="/contracts/:contractId" replace />} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-          
-          {/* Root redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
