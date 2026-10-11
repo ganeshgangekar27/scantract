@@ -3,6 +3,7 @@ import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { ProtectedRoute, PublicOnlyRoute } from './auth/ProtectedRoute';
 import { Skeleton } from './components/ui';
+import { HelpBot } from './components/HelpBot';
 
 // Public pages
 import { LandingPage } from './pages/LandingPage';
@@ -40,6 +41,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Toaster position="top-right" richColors />
+        <HelpBot />
         
         <Routes>
           {/* Root - Landing or Dashboard based on auth */}
