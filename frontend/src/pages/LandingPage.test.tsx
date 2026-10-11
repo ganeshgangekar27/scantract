@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { LandingPage } from './LandingPage';
 
@@ -8,9 +8,23 @@ vi.mock('../hooks/useReveal', () => ({
   useReveal: () => ({ current: null }),
 }));
 
+// Mock IntersectionObserver
+global.IntersectionObserver = class IntersectionObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  takeRecords() { return []; }
+  unobserve() {}
+} as any;
+
+// Mock fetch for video check
+global.fetch = vi.fn();
+
 describe('LandingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: mock fetch to reject (no video)
+    (global.fetch as any).mockRejectedValue(new Error('Not found'));
   });
 
   const renderLandingPage = () => {
@@ -66,8 +80,13 @@ describe('LandingPage', () => {
   it('shows how it works section with three steps', () => {
     renderLandingPage();
     
-    expect(screen.getByText('How it works')).toBeInTheDocument();
-    expect(screen.getByText('Upload')).toBeInTheDocument();
+    const howItWorksHeading = screen.getByText('How it works');
+    expect(howItWorksHeading).toBeInTheDocument();
+    
+    // Use getAllByText since "Upload" appears in multiple places
+    const uploads = screen.getAllByText('Upload');
+    expect(uploads.length).toBeGreaterThan(0);
+    
     expect(screen.getByText('AI analysis')).toBeInTheDocument();
     expect(screen.getByText('Review report')).toBeInTheDocument();
   });
@@ -77,6 +96,64 @@ describe('LandingPage', () => {
     
     // Footer should contain the product tagline
     expect(screen.getByText(/Contract analysis for rental and freelance agreements/i)).toBeInTheDocument();
+  });
+
+  // New tests for interactive features
+  it('clicking the Freelance tab changes visible sample finding text', () => {
+    renderLandingPage();
+    
+    // Initially on Rental tab
+    expect(screen.getByText('Excessive Security Deposit')).toBeInTheDocument();
+    
+    // Click Freelance tab
+    const freelanceTab = screen.getByRole('tab', { name: /Freelance contract/i });
+    fireEvent.click(freelanceTab);
+    
+    // Check for freelance-specific finding
+    expect(screen.getByText('Payment Terms Vague')).toBeInTheDocument();
+    expect(screen.queryByText('Excessive Security Deposit')).not.toBeInTheDocument();
+  });
+
+  it('accordion button toggles aria-expanded', () => {
+    renderLandingPage();
+    
+    const faqButton = screen.getByRole('button', { name: /Is this legal advice/i });
+    
+    // Initially collapsed
+    expect(faqButton).toHaveAttribute('aria-expanded', 'false');
+    
+    // Click to expand
+    fireEvent.click(faqButton);
+    expect(faqButton).toHaveAttribute('aria-expanded', 'true');
+    
+    // Click to collapse
+    fireEvent.click(faqButton);
+    expect(faqButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('no video rendered when HEAD check fails', () => {
+    renderLandingPage();
+    
+    // Video should not be rendered when fetch fails
+    const videos = document.querySelectorAll('video');
+    expect(videos.length).toBe(0);
+  });
+
+  it('disclaimer and both CTA hrefs are present', () => {
+    renderLandingPage();
+    
+    // Disclaimer
+    expect(screen.getByText(/Sample knowledge base, not legal advice/i)).toBeInTheDocument();
+    
+    // Both CTAs link to /signup
+    const signupLinks = screen.getAllByRole('link', { name: /Get started/i });
+    expect(signupLinks.length).toBeGreaterThan(0);
+    signupLinks.forEach(link => {
+      expect(link.getAttribute('href')).toBe('/signup');
+    });
+    
+    // Login link
+    expect(screen.getByRole('link', { name: /Log in/i })).toHaveAttribute('href', '/login');
   });
 });
 
