@@ -133,7 +133,7 @@ async def _load_contract(contract_id: str, db: AsyncSession) -> Contract:
     
     # Check processing status if field exists
     if hasattr(contract, 'processing_status'):
-        if contract.processing_status != "completed":
+        if contract.processing_status not in ("processing", "completed"):
             raise ValueError(
                 f"Contract {contract_id} is not ready for risk detection. "
                 f"Status: {contract.processing_status}"

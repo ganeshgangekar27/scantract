@@ -609,3 +609,73 @@ async def test_citation_format_flexibility(mock_contract, mock_clauses):
                         for finding in result.missing_clauses:
                             assert finding.triggering_rule_or_corpus
                             assert len(finding.triggering_rule_or_corpus.strip()) > 0
+
+
+# TC-19: Guard accepts "processing" status
+@pytest.mark.asyncio
+async def test_load_contract_accepts_processing_status():
+    """TC-19: Verify _load_contract accepts processing status."""
+    from app.llm.detect_risk import _load_contract
+    from app.db.models import Contract
+    from unittest.mock import AsyncMock, MagicMock
+    
+    mock_contract = MagicMock(spec=Contract)
+    mock_contract.id = 1
+    mock_contract.processing_status = "processing"
+    
+    mock_db = MagicMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_contract
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    
+    # Should not raise
+    result = await _load_contract("1", mock_db)
+    assert result == mock_contract
+
+
+# TC-20: Guard accepts "completed" status
+@pytest.mark.asyncio
+async def test_load_contract_accepts_completed_status():
+    """TC-20: Verify _load_contract accepts completed status."""
+    from app.llm.detect_risk import _load_contract
+    from app.db.models import Contract
+    from unittest.mock import AsyncMock, MagicMock
+    
+    mock_contract = MagicMock(spec=Contract)
+    mock_contract.id = 1
+    mock_contract.processing_status = "completed"
+    
+    mock_db = MagicMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_contract
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    
+    # Should not raise
+    result = await _load_contract("1", mock_db)
+    assert result == mock_contract
+
+
+# TC-21: Guard rejects "uploaded" and "failed" status
+@pytest.mark.asyncio
+async def test_load_contract_rejects_invalid_status():
+    """TC-21: Verify _load_contract rejects uploaded and failed status."""
+    from app.llm.detect_risk import _load_contract
+    from app.db.models import Contract
+    from unittest.mock import AsyncMock, MagicMock
+    
+    for invalid_status in ["uploaded", "failed"]:
+        mock_contract = MagicMock(spec=Contract)
+        mock_contract.id = 1
+        mock_contract.processing_status = invalid_status
+        
+        mock_db = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_contract
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        
+        # Should raise ValueError
+        with pytest.raises(ValueError) as exc_info:
+            await _load_contract("1", mock_db)
+        
+        assert "not ready for risk detection" in str(exc_info.value)
+        assert invalid_status in str(exc_info.value)
