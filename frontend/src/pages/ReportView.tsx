@@ -14,8 +14,9 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { Button, Card } from '../components/ui';
+import { SeverityBar } from '../components/SeverityBar';
 import { getReport, downloadReportPdf, ApiError } from '../lib/api';
-import { riskScore, riskLabel, filterBySeverity, countBySeverity } from '../lib/risk';
+import { riskScore, riskLabel, filterBySeverity, countBySeverity, topRisks } from '../lib/risk';
 import type { Report } from '../lib/types';
 
 type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
@@ -32,6 +33,8 @@ export function ReportView() {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [reloadCounter, setReloadCounter] = useState(0);
+  const [expandedFindingIds, setExpandedFindingIds] = useState<Set<string>>(new Set());
+  const [showAllFindings, setShowAllFindings] = useState(false);
 
   // Load report on mount
   useEffect(() => {
@@ -92,6 +95,18 @@ export function ReportView() {
   };
 
   const handleFindingClick = (findingId: string) => {
+    // Toggle expanded state
+    setExpandedFindingIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(findingId)) {
+        newSet.delete(findingId);
+      } else {
+        newSet.add(findingId);
+      }
+      return newSet;
+    });
+    
+    // Select finding for panel
     setSelectedFindingId(findingId);
     
     // Scroll to finding (guarded for jsdom)
@@ -145,6 +160,7 @@ export function ReportView() {
   const score = riskScore(report.risk_summary);
   const label = riskLabel(score);
   const counts = countBySeverity([...report.risky_clauses, ...report.missing_clauses]);
+  const riskyCounts = countBySeverity(report.risky_clauses);
   
   // Filter findings
   const filteredFindings = severityFilter === 'all'
@@ -240,6 +256,11 @@ export function ReportView() {
             </div>
           </div>
 
+          {/* Severity Bar */}
+          <div className="mb-4">
+            <SeverityBar high={counts.high} medium={counts.medium} low={counts.low} />
+          </div>
+
           {/* PDF Download */}
           <div className="flex items-center gap-4">
             <Button
@@ -254,6 +275,43 @@ export function ReportView() {
             )}
           </div>
         </Card>
+
+        {/* Top 5 Risks */}
+        {(() => {
+          const topRiskRows = topRisks(report.risky_clauses, report.missing_clauses, 5);
+          if (topRiskRows.length === 0) return null;
+          
+          return (
+            <Card className="p-6 mb-6" data-testid="top-risks">
+              <h2 className="text-xl font-semibold text-text-primary mb-4">Top 5 Risks</h2>
+              <div className="space-y-3">
+                {topRiskRows.map((risk) => (
+                  <div
+                    key={risk.key}
+                    data-testid="top-risk-row"
+                    className="flex items-start gap-3 p-3 bg-surface-secondary rounded-lg"
+                  >
+                    <span
+                      className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                        risk.severity === 'high'
+                          ? 'bg-severity-high-bg text-severity-high border border-severity-high-border'
+                          : risk.severity === 'medium'
+                          ? 'bg-severity-medium-bg text-severity-medium border border-severity-medium-border'
+                          : 'bg-severity-low-bg text-severity-low border border-severity-low-border'
+                      }`}
+                    >
+                      {risk.severity.toUpperCase()}
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary mb-1">{risk.label}</p>
+                      <p className="text-sm text-text-secondary">{risk.why}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* Filter Chips */}
         <div className="flex gap-2 mb-6">
@@ -275,7 +333,7 @@ export function ReportView() {
                 : 'bg-surface border border-border text-text-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
-            High ({counts.high})
+            High ({riskyCounts.high})
           </button>
           <button
             onClick={() => setSeverityFilter('medium')}
@@ -285,7 +343,7 @@ export function ReportView() {
                 : 'bg-surface border border-border text-text-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
-            Medium ({counts.medium})
+            Medium ({riskyCounts.medium})
           </button>
           <button
             onClick={() => setSeverityFilter('low')}
@@ -295,7 +353,7 @@ export function ReportView() {
                 : 'bg-surface border border-border text-text-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
-            Low ({counts.low})
+            Low ({riskyCounts.low})
           </button>
         </div>
 
@@ -346,60 +404,78 @@ export function ReportView() {
                   </p>
                 </Card>
               ) : (
-                filteredFindings.map((finding) => (
-                  <Card
-                    key={finding.finding_id}
-                    id={`finding-${finding.finding_id}`}
-                    className={`p-6 cursor-pointer transition-all ${
-                      selectedFindingId === finding.finding_id
-                        ? 'ring-2 ring-primary'
-                        : 'hover:shadow-md'
-                    }`}
-                    onClick={() => handleFindingClick(finding.finding_id)}
-                  >
-                    <div className="flex items-start gap-4">
-                      {/* Severity Badge */}
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${
-                          finding.severity === 'high'
-                            ? 'bg-severity-high-bg text-severity-high'
-                            : finding.severity === 'medium'
-                            ? 'bg-severity-medium-bg text-severity-medium'
-                            : 'bg-severity-low-bg text-severity-low'
+                <>
+                  {(showAllFindings ? filteredFindings : filteredFindings.slice(0, 5)).map((finding) => {
+                    const isExpanded = expandedFindingIds.has(finding.finding_id);
+                    return (
+                      <Card
+                        key={finding.finding_id}
+                        id={`finding-${finding.finding_id}`}
+                        data-testid="finding-card"
+                        aria-expanded={isExpanded}
+                        className={`p-6 cursor-pointer transition-all ${
+                          selectedFindingId === finding.finding_id
+                            ? 'ring-2 ring-primary'
+                            : 'hover:shadow-md'
                         }`}
+                        onClick={() => handleFindingClick(finding.finding_id)}
                       >
-                        {finding.severity}
-                      </span>
+                        <div className="flex items-start gap-4">
+                          {/* Severity Badge */}
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${
+                              finding.severity === 'high'
+                                ? 'bg-severity-high-bg text-severity-high'
+                                : finding.severity === 'medium'
+                                ? 'bg-severity-medium-bg text-severity-medium'
+                                : 'bg-severity-low-bg text-severity-low'
+                            }`}
+                          >
+                            {finding.severity}
+                          </span>
 
-                      <div className="flex-1">
-                        {/* Clause Number */}
-                        <p className="text-sm font-semibold text-text-secondary mb-2">
-                          Clause {finding.clause_number}
-                        </p>
+                          <div className="flex-1">
+                            {/* Clause Number - always visible */}
+                            <p className="text-sm font-semibold text-text-secondary mb-2">
+                              Clause {finding.clause_number}
+                            </p>
 
-                        {/* Clause Text */}
-                        <p className="text-text-primary mb-3 italic">
-                          "{finding.clause_text}"
-                        </p>
+                            {/* Expanded content */}
+                            {isExpanded && (
+                              <div data-testid="finding-details">
+                                {/* Clause Text */}
+                                <p className="text-text-primary mb-3 italic">
+                                  "{finding.clause_text}"
+                                </p>
 
-                        {/* Reason */}
-                        <p className="text-text-primary font-medium mb-2">
-                          {finding.reason}
-                        </p>
+                                {/* Explanation */}
+                                <p className="text-text-secondary mb-3">
+                                  {finding.explanation}
+                                </p>
 
-                        {/* Explanation - Hidden on desktop when panel shows */}
-                        <p className="text-text-secondary mb-3 lg:hidden">
-                          {finding.explanation}
-                        </p>
-
-                        {/* Citation - Hidden on desktop when panel shows */}
-                        <p className="text-sm text-text-tertiary lg:hidden">
-                          {finding.formatted_citation}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                ))
+                                {/* Citation */}
+                                <p className="text-sm text-text-tertiary">
+                                  {finding.formatted_citation}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Show all button */}
+                  {!showAllFindings && filteredFindings.length > 5 && (
+                    <Button
+                      onClick={() => setShowAllFindings(true)}
+                      variant="secondary"
+                      className="w-full"
+                    >
+                      Show all {filteredFindings.length}
+                    </Button>
+                  )}
+                </>
               )}
             </div>
 

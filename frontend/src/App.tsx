@@ -7,6 +7,7 @@ import { HelpBot } from './components/HelpBot';
 
 // Public pages
 import { LandingPage } from './pages/LandingPage';
+import { PrivacyPage, TermsPage } from './pages/LegalPage';
 
 // Auth pages
 import { LoginPage } from './pages/auth/LoginPage';
@@ -52,6 +53,8 @@ function App() {
           <Route path="/signup" element={<PublicOnlyRoute><SignupPage /></PublicOnlyRoute>} />
           <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
           <Route path="/reset-password" element={<PublicOnlyRoute><ResetPasswordPage /></PublicOnlyRoute>} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           
           {/* Protected routes */}
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />

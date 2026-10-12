@@ -52,6 +52,14 @@ export function LandingPage() {
           <p className="text-text-secondary">
             <span className="font-semibold text-text-primary">ScanTract</span> — Contract analysis for rental and freelance agreements
           </p>
+          <div className="mt-4 space-x-6">
+            <Link to="/privacy" className="text-text-secondary hover:text-primary transition-colors">
+              Privacy
+            </Link>
+            <Link to="/terms" className="text-text-secondary hover:text-primary transition-colors">
+              Terms
+            </Link>
+          </div>
         </div>
       </footer>
 

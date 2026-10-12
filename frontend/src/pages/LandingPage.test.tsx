@@ -155,6 +155,18 @@ describe('LandingPage', () => {
     // Login link
     expect(screen.getByRole('link', { name: /Log in/i })).toHaveAttribute('href', '/login');
   });
+
+  it('footer contains Privacy and Terms links', () => {
+    renderLandingPage();
+    
+    const privacyLink = screen.getByRole('link', { name: /^Privacy$/i });
+    expect(privacyLink).toBeInTheDocument();
+    expect(privacyLink.getAttribute('href')).toBe('/privacy');
+    
+    const termsLink = screen.getByRole('link', { name: /^Terms$/i });
+    expect(termsLink).toBeInTheDocument();
+    expect(termsLink.getAttribute('href')).toBe('/terms');
+  });
 });
 
 // Test for root route redirect behavior

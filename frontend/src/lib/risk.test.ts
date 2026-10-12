@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { riskScore, riskLabel, groupFindingsBySeverity, filterBySeverity, countBySeverity } from './risk';
+import { riskScore, riskLabel, groupFindingsBySeverity, filterBySeverity, countBySeverity, whyItMatters, topRisks } from './risk';
 import type { RiskSummary, RiskyClause, MissingClause } from './types';
 
 describe('riskScore', () => {
@@ -393,5 +393,332 @@ describe('countBySeverity', () => {
     expect(counts.high).toBe(1);
     expect(counts.medium).toBe(1);
     expect(counts.low).toBe(1);
+  });
+});
+
+describe('whyItMatters', () => {
+  it('returns last sentence of explanation when explanation has multiple sentences', () => {
+    const finding: RiskyClause = {
+      finding_id: 'uuid-1',
+      clause_id: 1,
+      clause_number: '1.1',
+      clause_text: 'Test',
+      severity: 'high',
+      reason: 'This clause is risky',
+      explanation: 'This is the first sentence. This is the second sentence. This is the third sentence.',
+      formatted_citation: 'Citation',
+    };
+    expect(whyItMatters(finding)).toBe('This is the third sentence.');
+  });
+
+  it('falls back to reason when explanation is empty', () => {
+    const finding: RiskyClause = {
+      finding_id: 'uuid-1',
+      clause_id: 1,
+      clause_number: '1.1',
+      clause_text: 'Test',
+      severity: 'high',
+      reason: 'This is the reason',
+      explanation: '',
+      formatted_citation: 'Citation',
+    };
+    // v2 adds period to reason fallback if missing
+    expect(whyItMatters(finding)).toBe('This is the reason.');
+  });
+
+  it('falls back to reason when explanation is whitespace', () => {
+    const finding: MissingClause = {
+      finding_id: 'uuid-1',
+      expected_clause_type: 'termination',
+      severity: 'high',
+      reason: 'Missing important clause',
+      explanation: '   ',
+      formatted_citation: 'Citation',
+    };
+    // v2 adds period to reason fallback if missing
+    expect(whyItMatters(finding)).toBe('Missing important clause.');
+  });
+
+  it('caps sentence at 140 characters with ellipsis', () => {
+    const longExplanation = 'Short intro. ' + 'A'.repeat(200);
+    const finding: RiskyClause = {
+      finding_id: 'uuid-1',
+      clause_id: 1,
+      clause_number: '1.1',
+      clause_text: 'Test',
+      severity: 'high',
+      reason: 'Short reason',
+      explanation: longExplanation,
+      formatted_citation: 'Citation',
+    };
+    const result = whyItMatters(finding);
+    expect(result.length).toBe(143); // 140 + "..."
+    expect(result.endsWith('...')).toBe(true);
+    expect(result.substring(0, 140)).toBe('A'.repeat(140));
+  });
+
+  it('does not add ellipsis when text is exactly 140 characters', () => {
+    const exactExplanation = 'A'.repeat(140);
+    const finding: RiskyClause = {
+      finding_id: 'uuid-1',
+      clause_id: 1,
+      clause_number: '1.1',
+      clause_text: 'Test',
+      severity: 'high',
+      reason: 'Reason',
+      explanation: exactExplanation,
+      formatted_citation: 'Citation',
+    };
+    const result = whyItMatters(finding);
+    // v2 adds period if missing, so 140 chars becomes 141
+    expect(result.length).toBe(141); // 140 + '.'
+    expect(result.endsWith('...')).toBe(false);
+    expect(result.endsWith('.')).toBe(true);
+  });
+
+  it('returns empty string when both reason and explanation are empty', () => {
+    const finding: RiskyClause = {
+      finding_id: 'uuid-1',
+      clause_id: 1,
+      clause_number: '1.1',
+      clause_text: 'Test',
+      severity: 'high',
+      reason: '',
+      explanation: '',
+      formatted_citation: 'Citation',
+    };
+    expect(whyItMatters(finding)).toBe('');
+  });
+
+  it('adds period to last sentence if it does not end with punctuation', () => {
+    const finding: RiskyClause = {
+      finding_id: 'uuid-1',
+      clause_id: 1,
+      clause_number: '1.1',
+      clause_text: 'Test',
+      severity: 'high',
+      reason: 'Reason',
+      explanation: 'First sentence. Last sentence without period',
+      formatted_citation: 'Citation',
+    };
+    expect(whyItMatters(finding)).toBe('Last sentence without period.');
+  });
+});
+
+describe('topRisks', () => {
+  it('returns empty array when no findings', () => {
+    const result = topRisks([], []);
+    expect(result).toEqual([]);
+  });
+
+  it('sorts by severity: high > medium > low', () => {
+    const risky: RiskyClause[] = [
+      {
+        finding_id: 'low-1',
+        clause_id: 1,
+        clause_number: '1.1',
+        clause_text: 'Low risk clause',
+        severity: 'low',
+        reason: 'Minor issue',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+      {
+        finding_id: 'high-1',
+        clause_id: 2,
+        clause_number: '1.2',
+        clause_text: 'High risk clause',
+        severity: 'high',
+        reason: 'Major issue',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+      {
+        finding_id: 'medium-1',
+        clause_id: 3,
+        clause_number: '1.3',
+        clause_text: 'Medium risk clause',
+        severity: 'medium',
+        reason: 'Moderate issue',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+    ];
+    
+    const result = topRisks(risky, []);
+    expect(result).toHaveLength(3);
+    expect(result[0].key).toBe('high-1');
+    expect(result[1].key).toBe('medium-1');
+    expect(result[2].key).toBe('low-1');
+  });
+
+  it('maintains original order within same severity (stable sort)', () => {
+    const risky: RiskyClause[] = [
+      {
+        finding_id: 'high-1',
+        clause_id: 1,
+        clause_number: '1.1',
+        clause_text: 'First high',
+        severity: 'high',
+        reason: 'Issue 1',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+      {
+        finding_id: 'high-2',
+        clause_id: 2,
+        clause_number: '1.2',
+        clause_text: 'Second high',
+        severity: 'high',
+        reason: 'Issue 2',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+      {
+        finding_id: 'high-3',
+        clause_id: 3,
+        clause_number: '1.3',
+        clause_text: 'Third high',
+        severity: 'high',
+        reason: 'Issue 3',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+    ];
+    
+    const result = topRisks(risky, []);
+    expect(result[0].key).toBe('high-1');
+    expect(result[1].key).toBe('high-2');
+    expect(result[2].key).toBe('high-3');
+  });
+
+  it('limits to n rows (default 5)', () => {
+    const risky: RiskyClause[] = Array.from({ length: 10 }, (_, i) => ({
+      finding_id: `id-${i}`,
+      clause_id: i,
+      clause_number: `${i}.1`,
+      clause_text: `Clause ${i}`,
+      severity: 'high' as const,
+      reason: `Reason ${i}`,
+      explanation: 'Explanation',
+      formatted_citation: 'Citation',
+    }));
+    
+    const result = topRisks(risky, []);
+    expect(result).toHaveLength(5);
+  });
+
+  it('respects custom n parameter', () => {
+    const risky: RiskyClause[] = Array.from({ length: 10 }, (_, i) => ({
+      finding_id: `id-${i}`,
+      clause_id: i,
+      clause_number: `${i}.1`,
+      clause_text: `Clause ${i}`,
+      severity: 'high' as const,
+      reason: `Reason ${i}`,
+      explanation: 'Explanation',
+      formatted_citation: 'Citation',
+    }));
+    
+    const result = topRisks(risky, [], 3);
+    expect(result).toHaveLength(3);
+  });
+
+  it('includes missing clauses in results', () => {
+    const missing: MissingClause[] = [
+      {
+        finding_id: 'missing-1',
+        expected_clause_type: 'Termination Clause',
+        severity: 'high',
+        reason: 'Missing termination',
+        explanation: 'This contract lacks termination provisions.',
+        formatted_citation: 'Citation',
+      },
+    ];
+    
+    const result = topRisks([], missing);
+    expect(result).toHaveLength(1);
+    expect(result[0].label).toBe('Termination Clause');
+    // v2 uses last sentence of explanation, not reason
+    expect(result[0].why).toBe('This contract lacks termination provisions.');
+  });
+
+  it('formats risky clause label with clause number and preview (64 chars)', () => {
+    // clause_text is exactly 64 characters
+    const clauseText = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'; // 64 x's
+    expect(clauseText.length).toBe(64);
+    
+    const risky: RiskyClause[] = [
+      {
+        finding_id: 'id-1',
+        clause_id: 1,
+        clause_number: '2.5',
+        clause_text: clauseText,
+        severity: 'high',
+        reason: 'Issue',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+    ];
+    
+    const result = topRisks(risky, []);
+    // Expected: "Clause 2.5: " + first 60 chars + "..."
+    expect(result[0].label).toBe('Clause 2.5: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...');
+  });
+
+  it('formats risky clause label without ellipsis when exactly 60 chars', () => {
+    // clause_text is exactly 60 characters
+    const clauseText = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'; // 60 x's
+    expect(clauseText.length).toBe(60);
+    
+    const risky: RiskyClause[] = [
+      {
+        finding_id: 'id-1',
+        clause_id: 1,
+        clause_number: '2.5',
+        clause_text: clauseText,
+        severity: 'high',
+        reason: 'Issue',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+    ];
+    
+    const result = topRisks(risky, []);
+    // Expected: "Clause 2.5: " + full 60 chars, no ellipsis
+    expect(result[0].label).toBe('Clause 2.5: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+    expect(result[0].label.endsWith('...')).toBe(false);
+  });
+
+  it('combines risky and missing clauses correctly', () => {
+    const risky: RiskyClause[] = [
+      {
+        finding_id: 'risky-1',
+        clause_id: 1,
+        clause_number: '1.1',
+        clause_text: 'Risky clause',
+        severity: 'medium',
+        reason: 'Moderate issue',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+    ];
+    
+    const missing: MissingClause[] = [
+      {
+        finding_id: 'missing-1',
+        expected_clause_type: 'Liability Limitation',
+        severity: 'high',
+        reason: 'Missing protection',
+        explanation: 'Explanation',
+        formatted_citation: 'Citation',
+      },
+    ];
+    
+    const result = topRisks(risky, missing);
+    expect(result).toHaveLength(2);
+    // High severity should come first
+    expect(result[0].key).toBe('missing-1');
+    expect(result[1].key).toBe('risky-1');
   });
 });
