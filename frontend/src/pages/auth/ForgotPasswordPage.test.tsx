@@ -24,6 +24,7 @@ describe('ForgotPasswordPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     globalThis.fetch = vi.fn();
+    vi.mocked(localStorage.getItem).mockReturnValue(null);
   });
 
   const renderForgotPasswordPage = () => {
@@ -42,6 +43,7 @@ describe('ForgotPasswordPage', () => {
 
     (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({ message: 'Reset link sent' }),
     });
 
@@ -60,6 +62,7 @@ describe('ForgotPasswordPage', () => {
 
     (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({
         message: 'Reset link sent',
         demo_reset_link: 'http://localhost:5173/reset-password?token=demo-token-123',
@@ -81,6 +84,7 @@ describe('ForgotPasswordPage', () => {
 
     (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({ message: 'Reset link sent' }),
     });
 

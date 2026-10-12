@@ -306,3 +306,42 @@ export async function getPipelineStatus(
   
   return contract;
 }
+
+
+/**
+ * Delete a contract.
+ * 
+ * @param contractId - Contract ID to delete
+ * @returns Success response
+ */
+export async function deleteContract(contractId: number): Promise<void> {
+  await apiRequest(`/api/contracts/${contractId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Retry processing a failed contract.
+ * 
+ * @param contractId - Contract ID to retry
+ * @returns Success response with contract_id
+ */
+export async function retryContract(contractId: number): Promise<{ contract_id: number }> {
+  const response = await apiRequest<{ contract_id: number }>(`/api/contracts/${contractId}/retry`, {
+    method: 'POST',
+  });
+  return response;
+}
+
+/**
+ * Delete all user data (contracts and account).
+ * This invalidates the current session token.
+ * 
+ * @returns Number of contracts deleted
+ */
+export async function deleteMyData(): Promise<{ deleted_contracts: number }> {
+  const response = await apiRequest<{ deleted_contracts: number }>('/api/auth/me/data', {
+    method: 'DELETE',
+  });
+  return response;
+}

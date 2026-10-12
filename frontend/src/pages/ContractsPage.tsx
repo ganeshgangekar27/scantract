@@ -8,11 +8,14 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
 import { AppShell } from '../components/AppShell';
 import { Button, Card } from '../components/ui';
-import { listContracts } from '../lib/api';
+import { listContracts, deleteContract, retryContract } from '../lib/api';
 import type { ContractListItem, ProcessingStatus } from '../lib/types';
+import { toast } from 'sonner';
 
 type TabType = 'my-contracts' | 'samples';
 type StatusFilter = 'all' | 'completed' | 'processing' | 'failed';
@@ -26,6 +29,9 @@ export function ContractsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('my-contracts');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   
   useEffect(() => {
     loadContracts();
@@ -77,6 +83,39 @@ export function ContractsPage() {
   const handleRowClick = (contract: ContractListItem) => {
     if (contract.processing_status === 'completed') {
       navigate(`/contracts/${contract.contract_id}`);
+    }
+  };
+  
+  const handleDelete = async (contractId: number) => {
+    try {
+      setActionLoading(contractId);
+      setActionError(null);
+      await deleteContract(contractId);
+      toast.success('Contract deleted successfully');
+      setDeleteConfirmId(null);
+      await loadContracts();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete contract';
+      setActionError(message);
+      toast.error(message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+  
+  const handleRetry = async (contractId: number) => {
+    try {
+      setActionLoading(contractId);
+      setActionError(null);
+      await retryContract(contractId);
+      toast.success('Contract requeued for processing');
+      await loadContracts();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to retry contract';
+      setActionError(message);
+      toast.error(message);
+    } finally {
+      setActionLoading(null);
     }
   };
   
@@ -242,24 +281,28 @@ export function ContractsPage() {
                           Type
                         </th>
                       )}
+                      {activeTab === 'my-contracts' && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
+                          Actions
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filteredContracts.map((contract) => (
                       <tr
                         key={contract.contract_id}
-                        onClick={() => handleRowClick(contract)}
-                        className={`${
-                          contract.processing_status === 'completed'
-                            ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                            : 'cursor-not-allowed opacity-70'
-                        } transition-colors`}
+                        className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
                       >
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleRowClick(contract)}
+                            disabled={contract.processing_status !== 'completed'}
+                            className="flex items-center gap-3 text-left w-full disabled:cursor-not-allowed"
+                          >
                             <FileText className="w-5 h-5 text-text-secondary flex-shrink-0" />
                             <span className="text-text-primary font-medium">{contract.filename}</span>
-                          </div>
+                          </button>
                         </td>
                         <td className="px-6 py-4 text-sm text-text-secondary">
                           {formatDate(contract.uploaded_at)}
@@ -281,12 +324,34 @@ export function ContractsPage() {
                             </span>
                           </td>
                         )}
+                        {activeTab === 'my-contracts' && (
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              {contract.processing_status === 'failed' && (
+                                <button
+                                  onClick={() => handleRetry(contract.contract_id)}
+                                  disabled={actionLoading === contract.contract_id}
+                                  className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Retry processing"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setDeleteConfirmId(contract.contract_id)}
+                                disabled={actionLoading === contract.contract_id}
+                                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Delete contract"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {/* Extension point for future actions */}
-                {/* TODO: Add delete/retry buttons when backend routes are available */}
               </Card>
             </div>
             
@@ -295,18 +360,17 @@ export function ContractsPage() {
               {filteredContracts.map((contract) => (
                 <Card
                   key={contract.contract_id}
-                  onClick={() => handleRowClick(contract)}
-                  className={`p-4 ${
-                    contract.processing_status === 'completed'
-                      ? 'cursor-pointer hover:border-primary'
-                      : 'cursor-not-allowed opacity-70'
-                  } transition-all`}
+                  className="p-4 transition-all"
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <button
+                      onClick={() => handleRowClick(contract)}
+                      disabled={contract.processing_status !== 'completed'}
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left disabled:cursor-not-allowed"
+                    >
                       <FileText className="w-5 h-5 text-text-secondary flex-shrink-0" />
                       <span className="text-text-primary font-medium truncate">{contract.filename}</span>
-                    </div>
+                    </button>
                     {contract.is_sample && (
                       <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 font-medium ml-2">
                         Sample
@@ -325,6 +389,30 @@ export function ContractsPage() {
                         {contract.failed_stage ? `Failed at ${contract.failed_stage}: ` : ''}{contract.error_message}
                       </div>
                     )}
+                    {!contract.is_sample && activeTab === 'my-contracts' && (
+                      <div className="flex gap-2 pt-2">
+                        {contract.processing_status === 'failed' && (
+                          <Button
+                            onClick={() => handleRetry(contract.contract_id)}
+                            disabled={actionLoading === contract.contract_id}
+                            variant="secondary"
+                            className="flex-1 text-sm"
+                          >
+                            <RotateCcw className="w-4 h-4 mr-1" />
+                            Retry
+                          </Button>
+                        )}
+                        <Button
+                          onClick={() => setDeleteConfirmId(contract.contract_id)}
+                          disabled={actionLoading === contract.contract_id}
+                          variant="secondary"
+                          className="flex-1 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -332,6 +420,49 @@ export function ContractsPage() {
           </>
         )}
       </motion.div>
+      
+      {/* Delete confirmation modal */}
+      {deleteConfirmId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-surface rounded-lg shadow-xl max-w-md w-full p-6"
+          >
+            <h3 className="text-lg font-semibold text-text-primary mb-2">
+              Delete this contract?
+            </h3>
+            <p className="text-text-secondary mb-6">
+              This cannot be undone. All analysis data will be permanently deleted.
+            </p>
+            {actionError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded text-sm">
+                {actionError}
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <Button
+                onClick={() => {
+                  setDeleteConfirmId(null);
+                  setActionError(null);
+                }}
+                variant="secondary"
+                disabled={actionLoading !== null}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleDelete(deleteConfirmId)}
+                variant="primary"
+                disabled={actionLoading !== null}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {actionLoading === deleteConfirmId ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </AppShell>
   );
 }
