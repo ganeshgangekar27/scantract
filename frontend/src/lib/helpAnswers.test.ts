@@ -29,6 +29,7 @@ describe('helpAnswers', () => {
     expect(result.answer).toContain('high');
     expect(result.answer).toContain('medium');
     expect(result.answer).toContain('low');
+    expect(result.answer).toContain('safe');
   });
 
   it('matches clause topic and mentions explanation', () => {
@@ -77,5 +78,41 @@ describe('helpAnswers', () => {
     const result = answerFor('');
     expect(result.matched).toBe(false);
     expect(result.answer).toContain('common questions');
+  });
+
+  // Table-driven tests with exact topic assertions
+  describe('realistic user phrasings', () => {
+    const testCases: Array<{ input: string; expectedTopic: string | null; description: string }> = [
+      { input: 'how do I delete my data', expectedTopic: 'delete', description: 'delete data question' },
+      { input: 'do I need an account', expectedTopic: null, description: 'account question (no match)' },
+      { input: 'what file types are supported', expectedTopic: 'filetype', description: 'file types question' },
+      { input: 'is docx ok?', expectedTopic: 'filetype', description: 'docx format check' },
+      { input: 'what does high risk mean?', expectedTopic: 'risk', description: 'risk level meaning' },
+      { input: 'how long does it take', expectedTopic: 'processing', description: 'processing time' },
+      { input: 'my contract failed', expectedTopic: 'failed', description: 'failed contract' },
+      { input: 'where are my old contracts', expectedTopic: 'contracts', description: 'finding old contracts' },
+      { input: 'is this legal advice', expectedTopic: 'legal', description: 'legal advice disclaimer' },
+      { input: 'can I upload a pdf', expectedTopic: 'upload', description: 'upload question' },
+      { input: 'what is a clause', expectedTopic: 'clause', description: 'clause explanation' },
+      { input: 'why is analysis slow', expectedTopic: 'processing', description: 'analysis speed' },
+      { input: 'delete my account', expectedTopic: 'delete', description: 'account deletion' },
+      { input: 'how to submit contract', expectedTopic: 'upload', description: 'submit contract' },
+      { input: 'pdf supported?', expectedTopic: 'filetype', description: 'pdf support check' },
+      { input: 'uploaded successfully', expectedTopic: null, description: 'uploaded should not match upload (word boundary)' },
+      { input: 'random nonsense text', expectedTopic: null, description: 'gibberish input 1' },
+      { input: 'xyzabc 123456', expectedTopic: null, description: 'gibberish input 2' },
+    ];
+
+    testCases.forEach(({ input, expectedTopic, description }) => {
+      it(`${description}: "${input}"`, () => {
+        const result = answerFor(input);
+        expect(result.topic).toBe(expectedTopic);
+        if (expectedTopic === null) {
+          expect(result.matched).toBe(false);
+        } else {
+          expect(result.matched).toBe(true);
+        }
+      });
+    });
   });
 });

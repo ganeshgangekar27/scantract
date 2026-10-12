@@ -6,6 +6,7 @@
 export interface HelpAnswer {
   answer: string;
   matched: boolean;
+  topic: string | null;
 }
 
 const answers: Record<string, string> = {
@@ -27,10 +28,10 @@ const answers: Record<string, string> = {
     "You'll see a 'processing' status while this happens. The owner confirms that analysis takes a few minutes.",
 
   risk: 
-    "Risk levels are high, medium, or low. " +
+    "Risk levels are high, medium, low, or safe. " +
     // src: frontend/src/pages/ReportView.tsx:21
     // src: frontend/tailwind.config.js:26-46
-    "Each level has a distinct color: high (red), medium (yellow), low (blue). " +
+    "Each level has a distinct color: high (red), medium (yellow), low (blue), safe (green). " +
     "These indicate the severity of issues found in your contract clauses.",
 
   clause: 
@@ -40,7 +41,7 @@ const answers: Record<string, string> = {
 
   contracts: 
     "To find past contracts, go to 'My Contracts' from the sidebar. " +
-    // src: frontend/src/App.tsx:57
+    // src: frontend/src/App.tsx:59
     "This page lists all contracts you've uploaded, along with their status and risk summary.",
 
   failed: 
@@ -51,7 +52,7 @@ const answers: Record<string, string> = {
   delete: 
     "You can delete individual contracts from the My Contracts page. " +
     "To delete all your data (contracts and account), go to Settings. " +
-    // src: frontend/src/lib/api.ts:306-342
+    // src: frontend/src/lib/api.ts:342-345
     "Deleting all data will invalidate your session and cannot be undone.",
 
   legal: 
@@ -60,16 +61,18 @@ const answers: Record<string, string> = {
     "This system is for informational purposes only. Consult a qualified lawyer for legal advice.",
 };
 
+// Topic priority order: more specific topics first (delete, legal) before generic ones (upload, clause)
+// This prevents "delete" matching on "upload" or "legal" matching on "clause"
 const keywords: Record<string, string[]> = {
   delete: ['delete my', 'delete data', 'deleting my', 'remove my data', 'erase my'],
   legal: ['legal advice', 'is this legal', 'lawyer', 'attorney'],
   upload: ['upload', 'how do i upload', 'uploading', 'submit', 'add contract'],
-  filetype: ['file type', 'file format', 'what file', 'supported', 'pdf', 'docx', 'size limit'],
-  processing: ['processing', 'analysis', 'why is processing', 'slow', 'how long', 'takes time'],
-  risk: ['risk level', 'risk levels mean', 'severity', 'what do the risk', 'high medium low'],
+  filetype: ['file type', 'file types', 'file format', 'what file', 'supported', 'pdf', 'docx', 'size limit'],
+  processing: ['processing', 'analysis', 'why is processing', 'slow', 'how long', 'takes time', 'take'],
+  risk: ['risk level', 'risk levels mean', 'severity', 'what do the risk', 'high medium low', 'high risk', 'medium risk', 'low risk'],
   clause: ['clause card', 'what is a clause', 'clause', 'explanation'],
-  contracts: ['past contract', 'my past', 'where are my', 'previous contract', 'my contracts', 'find contract'],
-  failed: ['contract fail', 'failed contract', 'why did', 'broken'],
+  contracts: ['past contract', 'my past', 'where are my', 'previous contract', 'my contracts', 'find contract', 'old contract'],
+  failed: ['contract fail', 'failed contract', 'why did', 'broken', 'contract failed'],
 };
 
 const fallback = 
@@ -79,23 +82,32 @@ const fallback =
   "failed contracts, deleting data, or our legal disclaimer.";
 
 /**
- * Match user input to a canned answer using keyword matching.
+ * Match user input to a canned answer using whole-word/phrase matching.
  * Case-insensitive, returns fallback if no match.
+ * Uses word boundaries to prevent partial matches (e.g., "upload" won't match "uploaded").
  */
 export function answerFor(text: string): HelpAnswer {
   const lowerText = text.toLowerCase();
   
+  // Check each topic in priority order (more specific first)
   for (const [topic, keywordList] of Object.entries(keywords)) {
-    if (keywordList.some(keyword => lowerText.includes(keyword))) {
-      return {
-        answer: answers[topic],
-        matched: true,
-      };
+    for (const keyword of keywordList) {
+      // Create regex with word boundaries for whole-word/phrase matching
+      // \b matches word boundary (start/end of word)
+      const pattern = new RegExp(`\\b${keyword.replace(/\s+/g, '\\s+')}\\b`, 'i');
+      if (pattern.test(lowerText)) {
+        return {
+          answer: answers[topic],
+          matched: true,
+          topic: topic,
+        };
+      }
     }
   }
   
   return {
     answer: fallback,
     matched: false,
+    topic: null,
   };
 }
