@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from './DashboardPage';
@@ -245,5 +245,123 @@ describe('DashboardPage', () => {
     
     // Sample badge should appear
     expect(screen.getByText('Sample')).toBeInTheDocument();
+  });
+
+  it('shows status counts per label in status mix', async () => {
+    const testContracts = [
+      { ...mockContracts[0], is_sample: false, processing_status: 'completed' as const },
+      { ...mockContracts[1], is_sample: false, processing_status: 'completed' as const },
+      { ...mockContracts[2], is_sample: false, processing_status: 'completed' as const },
+      { ...mockContracts[3], is_sample: false, processing_status: 'processing' as const },
+      { ...mockContracts[4], is_sample: false, processing_status: 'processing' as const },
+      { contract_id: 999, filename: 'failed.pdf', uploaded_at: new Date().toISOString(), processing_status: 'failed' as const, pipeline_stage: null, failed_stage: null, error_message: null, is_sample: false },
+    ];
+    
+    vi.spyOn(api, 'listContracts').mockResolvedValue(testContracts);
+    
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+    
+    await waitFor(() => {
+      const statusMixCard = screen.getByText('Status mix').closest('.p-6');
+      expect(statusMixCard).toBeDefined();
+      
+      // Check for exact text in the card
+      expect(within(statusMixCard!).getByText('3 (50%)')).toBeInTheDocument();
+      expect(within(statusMixCard!).getByText('2 (33%)')).toBeInTheDocument();
+      expect(within(statusMixCard!).getByText('1 (17%)')).toBeInTheDocument();
+    });
+  });
+
+  it('shows percentages that sum to exactly 100 in status mix', async () => {
+    const testContracts = [
+      { ...mockContracts[0], is_sample: false, processing_status: 'completed' as const },
+      { ...mockContracts[1], is_sample: false, processing_status: 'processing' as const },
+      { ...mockContracts[2], is_sample: false, processing_status: 'failed' as const },
+    ];
+    
+    vi.spyOn(api, 'listContracts').mockResolvedValue(testContracts);
+    
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+    
+    await waitFor(() => {
+      const statusMixCard = screen.getByText('Status mix').closest('.p-6');
+      const percentTexts = within(statusMixCard!).getAllByText(/\d+ \(\d+%\)/);
+      const percentages = percentTexts.map(el => {
+        const match = el.textContent?.match(/\((\d+)%\)/);
+        return match ? parseInt(match[1]) : 0;
+      });
+      const sum = percentages.reduce((a, b) => a + b, 0);
+      expect(sum).toBe(100);
+      // With 1/1/1, valid splits are 34+33+33 or 33+34+33 or 33+33+34
+      expect(percentages).toEqual(expect.arrayContaining([expect.any(Number)]));
+      expect(percentages.length).toBe(3);
+    });
+  });
+
+  it('shows empty state text when no user contracts', async () => {
+    vi.spyOn(api, 'listContracts').mockResolvedValue([]);
+    
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Welcome, .* 👋/)).toBeInTheDocument();
+      expect(screen.getByText(/Let's analyze your first contract/)).toBeInTheDocument();
+    });
+  });
+
+  it('excludes samples from status mix counts', async () => {
+    const testContracts = [
+      { ...mockContracts[0], is_sample: false, processing_status: 'completed' as const },
+      { ...mockContracts[5], is_sample: true, processing_status: 'completed' as const },
+    ];
+    
+    vi.spyOn(api, 'listContracts').mockResolvedValue(testContracts);
+    
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+    
+    await waitFor(() => {
+      expect(screen.getByText(/1 \(100%\)/)).toBeInTheDocument();
+    });
+  });
+
+  it('does not show High, Medium or Low in status mix card', async () => {
+    const testContracts = [
+      { ...mockContracts[0], is_sample: false, processing_status: 'completed' as const },
+      { ...mockContracts[1], is_sample: false, processing_status: 'processing' as const },
+      { ...mockContracts[2], is_sample: false, processing_status: 'failed' as const },
+    ];
+    
+    vi.spyOn(api, 'listContracts').mockResolvedValue(testContracts);
+    
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+    
+    await waitFor(() => {
+      expect(screen.getByText('Status mix')).toBeInTheDocument();
+    });
+    
+    const statusMixCard = screen.getByText('Status mix').closest('.p-6');
+    expect(statusMixCard).not.toHaveTextContent('High');
+    expect(statusMixCard).not.toHaveTextContent('Medium');
+    expect(statusMixCard).not.toHaveTextContent('Low');
   });
 });

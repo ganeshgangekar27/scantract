@@ -22,11 +22,10 @@ interface Stats {
   failed: number;
 }
 
-interface RiskMixData {
-  high: number;
-  medium: number;
-  low: number;
-  none: number;
+interface StatusMixData {
+  completed: number;
+  inProgress: number;
+  failed: number;
 }
 
 const DONUT_COLORS = {
@@ -37,6 +36,7 @@ const DONUT_COLORS = {
   completed: '#10b981',
   processing: '#f59e0b',
   failed: '#ef4444',
+  inProgress: '#3b82f6',
 };
 
 export function DashboardPage() {
@@ -47,7 +47,7 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [contracts, setContracts] = useState<ContractListItem[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, completed: 0, processing: 0, failed: 0 });
-  const [riskMix, setRiskMix] = useState<RiskMixData>({ high: 0, medium: 0, low: 0, none: 0 });
+  const [statusMix, setStatusMix] = useState<StatusMixData>({ completed: 0, inProgress: 0, failed: 0 });
   
   const firstName = user?.full_name.split(' ')[0] || 'there';
   
@@ -75,14 +75,13 @@ export function DashboardPage() {
       };
       setStats(newStats);
       
-      // Calculate risk mix from status counts (cheap alternative to fetching all reports)
-      const statusMix: RiskMixData = {
-        high: userContracts.filter(c => c.processing_status === 'failed').length,
-        medium: userContracts.filter(c => c.processing_status === 'processing' || c.processing_status === 'uploaded').length,
-        low: userContracts.filter(c => c.processing_status === 'completed').length,
-        none: 0,
+      // Calculate status mix for status distribution chart
+      const newStatusMix: StatusMixData = {
+        completed: userContracts.filter(c => c.processing_status === 'completed').length,
+        inProgress: userContracts.filter(c => c.processing_status === 'processing' || c.processing_status === 'uploaded').length,
+        failed: userContracts.filter(c => c.processing_status === 'failed').length,
       };
-      setRiskMix(statusMix);
+      setStatusMix(newStatusMix);
       
       setLoading(false);
     } catch (err) {
@@ -121,50 +120,117 @@ export function DashboardPage() {
     );
   };
   
-  const renderDonut = (data: RiskMixData) => {
-    const total = data.high + data.medium + data.low + data.none;
-    if (total === 0) return null;
-    
+  const calculatePercentages = (data: StatusMixData): { label: string; count: number; percent: number; color: string }[] => {
+    const total = data.completed + data.inProgress + data.failed;
+    if (total === 0) return [];
+
+    const items = [
+      { label: 'Completed', count: data.completed, color: DONUT_COLORS.completed },
+      { label: 'In progress', count: data.inProgress, color: DONUT_COLORS.inProgress },
+      { label: 'Failed', count: data.failed, color: DONUT_COLORS.failed },
+    ];
+
+    // Calculate raw percentages
+    const rawPercentages = items.map(item => ({
+      ...item,
+      rawPercent: (item.count / total) * 100,
+      percent: 0,
+    }));
+
+    // Round down and calculate remainder
+    let sum = 0;
+    rawPercentages.forEach(item => {
+      item.percent = Math.floor(item.rawPercent);
+      sum += item.percent;
+    });
+
+    // Distribute remainder using largest remainder method
+    const remainder = 100 - sum;
+    if (remainder > 0) {
+      const withRemainders = rawPercentages
+        .map((item, idx) => ({ idx, remainder: item.rawPercent - item.percent }))
+        .sort((a, b) => b.remainder - a.remainder);
+
+      for (let i = 0; i < remainder; i++) {
+        rawPercentages[withRemainders[i].idx].percent += 1;
+      }
+    }
+
+    return rawPercentages;
+  };
+
+  const renderStatusDonut = (data: StatusMixData) => {
+    const total = data.completed + data.inProgress + data.failed;
+    if (total === 0) {
+      return (
+        <div className="text-center py-8 text-text-secondary">
+          No contracts yet
+        </div>
+      );
+    }
+
+    const items = calculatePercentages(data);
     let currentAngle = -90;
     const segments: { angle: number; percent: number; color: string; label: string }[] = [];
-    
-    Object.entries(data).forEach(([key, value]) => {
-      if (value > 0) {
-        const percent = (value / total) * 100;
+
+    items.forEach(item => {
+      if (item.count > 0) {
         segments.push({
           angle: currentAngle,
-          percent,
-          color: DONUT_COLORS[key as keyof RiskMixData],
-          label: key,
+          percent: item.percent,
+          color: item.color,
+          label: item.label,
         });
-        currentAngle += (percent / 100) * 360;
+        currentAngle += (item.percent / 100) * 360;
       }
     });
-    
+
     return (
-      <svg viewBox="0 0 100 100" className="w-32 h-32">
-        <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" strokeWidth="20" className="dark:stroke-gray-700" />
-        {segments.map((seg, idx) => {
-          const startAngle = (seg.angle * Math.PI) / 180;
-          const endAngle = ((seg.angle + (seg.percent / 100) * 360) * Math.PI) / 180;
-          const largeArc = seg.percent > 50 ? 1 : 0;
-          
-          const x1 = 50 + 40 * Math.cos(startAngle);
-          const y1 = 50 + 40 * Math.sin(startAngle);
-          const x2 = 50 + 40 * Math.cos(endAngle);
-          const y2 = 50 + 40 * Math.sin(endAngle);
-          
-          return (
-            <path
-              key={idx}
-              d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
-              fill={seg.color}
-              opacity="0.8"
-            />
-          );
-        })}
-        <circle cx="50" cy="50" r="25" fill="white" className="dark:fill-gray-900" />
-      </svg>
+      <div className="flex flex-col items-center">
+        <div className="relative">
+          <svg viewBox="0 0 100 100" className="w-32 h-32" aria-label={`Status distribution: ${items.map(i => `${i.label} ${i.percent}%`).join(', ')}`}>
+            <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" strokeWidth="20" className="dark:stroke-gray-700" />
+            {segments.map((seg, idx) => {
+              const startAngle = (seg.angle * Math.PI) / 180;
+              const endAngle = ((seg.angle + (seg.percent / 100) * 360) * Math.PI) / 180;
+              const largeArc = seg.percent > 50 ? 1 : 0;
+
+              const x1 = 50 + 40 * Math.cos(startAngle);
+              const y1 = 50 + 40 * Math.sin(startAngle);
+              const x2 = 50 + 40 * Math.cos(endAngle);
+              const y2 = 50 + 40 * Math.sin(endAngle);
+
+              return (
+                <path
+                  key={idx}
+                  d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                  fill={seg.color}
+                  opacity="0.8"
+                />
+              );
+            })}
+            <circle cx="50" cy="50" r="25" fill="white" className="dark:fill-gray-900" />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-text-primary">{`${total} total`}</div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 w-full space-y-2">
+          {items.map(item => (
+            <div key={item.label} className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="text-text-secondary">{item.label}</span>
+              </div>
+              <span className="text-text-primary font-medium">
+                {item.count} ({item.percent}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   };
   
@@ -359,25 +425,7 @@ export function DashboardPage() {
           <div className="space-y-6">
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-text-primary mb-4">Status mix</h2>
-              <div className="flex flex-col items-center">
-                {renderDonut(riskMix)}
-                <div className="mt-4 grid grid-cols-2 gap-2 w-full text-sm">
-                  {Object.entries(riskMix).map(([key, value]) => {
-                    if (value === 0) return null;
-                    return (
-                      <div key={key} className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: DONUT_COLORS[key as keyof RiskMixData] }}
-                        />
-                        <span className="text-text-secondary capitalize">
-                          {key === 'low' ? 'Completed' : key === 'medium' ? 'Processing' : key === 'high' ? 'Failed' : key}: {value}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              {renderStatusDonut(statusMix)}
             </Card>
             
             <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
