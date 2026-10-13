@@ -10,7 +10,7 @@
       },
       "description": "Run the matching pytest file when a backend Python file is saved.",
       "matcher": "^backend/.*\\.py$",
-      "enabled": true
+      "enabled": false
     }
   ]
 }

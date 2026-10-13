@@ -3,6 +3,7 @@
 import json
 import secrets
 import sys
+import time
 from urllib import request, error, parse
 
 BASE_URL = "http://localhost:8000"
@@ -38,10 +39,11 @@ def main():
     fails = 0
     # Generate strong random password
     password = secrets.token_urlsafe(16)
+    qa_email = f"qa_{int(time.time())}@example.com"
     
     # Test 1: Register qa1
     status, _ = req("POST", "/api/auth/register", {
-        "email": "qa1@example.com",
+        "email": qa_email,
         "password": password,
         "full_name": "QA User 1"
     })
@@ -50,7 +52,7 @@ def main():
     
     # Test 2: Duplicate register
     status, _ = req("POST", "/api/auth/register", {
-        "email": "qa1@example.com",
+        "email": qa_email,
         "password": password,
         "full_name": "QA User 1"
     })
@@ -59,7 +61,7 @@ def main():
     
     # Test 3: Login qa1
     status, body = req("POST", "/api/auth/login", {
-        "email": "qa1@example.com",
+        "email": qa_email,
         "password": password
     })
     if check("login", 200, status): passes += 1
@@ -68,7 +70,7 @@ def main():
     
     # Test 4: Wrong password
     status, _ = req("POST", "/api/auth/login", {
-        "email": "qa1@example.com",
+        "email": qa_email,
         "password": "wrongpassword"
     })
     if check("wrong_password", 401, status): passes += 1
@@ -115,7 +117,7 @@ def main():
     else: fails += 1
     
     # Test 11: Forgot password for qa1
-    status, body1 = req("POST", "/api/auth/forgot-password", {"email": "qa1@example.com"})
+    status, body1 = req("POST", "/api/auth/forgot-password", {"email": qa_email})
     if check("forgot_known", 200, status): passes += 1
     else: fails += 1
     
@@ -141,7 +143,7 @@ def main():
     
     # Test 15: Login with new password
     status, _ = req("POST", "/api/auth/login", {
-        "email": "qa1@example.com",
+        "email": qa_email,
         "password": new_password
     })
     if check("login_new_pwd", 200, status): passes += 1
@@ -149,7 +151,7 @@ def main():
     
     # Test 16: Login with old password
     status, _ = req("POST", "/api/auth/login", {
-        "email": "qa1@example.com",
+        "email": qa_email,
         "password": password
     })
     if check("login_old_pwd", 401, status): passes += 1
@@ -164,6 +166,7 @@ def main():
     else: fails += 1
     
     print(f"\n=== SUMMARY: {passes} PASS, {fails} FAIL ===")
+    print(f"Created test user: {qa_email}")
     sys.exit(0 if fails == 0 else 1)
 
 if __name__ == "__main__":
