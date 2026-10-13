@@ -54,6 +54,28 @@ def generate_pdf_report(report: ContractReport) -> bytes:
     return pdf_bytes.getvalue()
 
 
+def _truncate(text: str, max_chars: int) -> str:
+    """
+    Truncate text at word boundary and append ellipsis if cut.
+    
+    Args:
+        text: Text to truncate (can be None or empty)
+        max_chars: Maximum character count
+        
+    Returns:
+        Truncated text with ellipsis if cut, or original text if shorter
+    """
+    if not text:
+        return ""
+    
+    if len(text) <= max_chars:
+        return text
+    
+    # Cut at word boundary
+    truncated = text[:max_chars].rsplit(' ', 1)[0]
+    return truncated + "…"
+
+
 def _build_html(report: ContractReport) -> str:
     """Build HTML content for the PDF report."""
     # Escape HTML special characters
@@ -65,7 +87,26 @@ def _build_html(report: ContractReport) -> str:
             .replace('"', '&quot;')
             .replace("'", '&#x27;'))
     
-    # Build HTML sections
+    # Calculate severity bar widths (proportional to counts)
+    total_severity = (report.risk_summary.high_severity_count + 
+                      report.risk_summary.medium_severity_count + 
+                      report.risk_summary.low_severity_count)
+    
+    if total_severity > 0:
+        high_pct = (report.risk_summary.high_severity_count / total_severity) * 100
+        medium_pct = (report.risk_summary.medium_severity_count / total_severity) * 100
+        low_pct = (report.risk_summary.low_severity_count / total_severity) * 100
+        severity_bar_html = f"""
+        <div class="severity-bar">
+            <div class="severity-segment high" style="width: {high_pct}%"></div>
+            <div class="severity-segment medium" style="width: {medium_pct}%"></div>
+            <div class="severity-segment low" style="width: {low_pct}%"></div>
+        </div>
+        """
+    else:
+        severity_bar_html = '<div class="severity-bar"><div class="severity-segment neutral" style="width: 100%"></div></div>'
+    
+    # Build HTML sections - compact header on page 1
     html = f"""
 <!DOCTYPE html>
 <html>
@@ -74,104 +115,115 @@ def _build_html(report: ContractReport) -> str:
     <title>Contract Risk Report - {escape_html(report.filename)}</title>
 </head>
 <body>
-    <!-- Cover Page -->
-    <div class="cover-page">
+    <!-- Compact Header (no separate cover page) -->
+    <div class="compact-header">
         <h1>Contract Risk Report</h1>
-        <h2>{escape_html(report.filename)}</h2>
+        <p class="filename">{escape_html(report.filename)}</p>
         <p class="date">Upload Date: {report.upload_date.strftime('%B %d, %Y')}</p>
         <div class="risk-badge {report.risk_summary.overall_risk_level}">
             Overall Risk: {report.risk_summary.overall_risk_level.upper()}
         </div>
     </div>
     
-    <!-- Risk Summary Section -->
+    <!-- Risk Summary Section (compact) -->
     <div class="section">
         <h2>Risk Summary</h2>
-        <table class="summary-table">
+        <table class="summary-table compact">
             <tr>
-                <th>Metric</th>
-                <th>Count</th>
+                <th>Total Clauses</th>
+                <th>Risky Clauses</th>
+                <th>Missing Clauses</th>
+                <th>High</th>
+                <th>Medium</th>
+                <th>Low</th>
             </tr>
             <tr>
-                <td>Total Clauses</td>
                 <td>{report.risk_summary.total_clauses}</td>
-            </tr>
-            <tr>
-                <td>Risky Clauses</td>
                 <td>{report.risk_summary.risky_clauses_count}</td>
-            </tr>
-            <tr>
-                <td>Missing Clauses</td>
                 <td>{report.risk_summary.missing_clauses_count}</td>
-            </tr>
-            <tr>
-                <td>High Severity</td>
                 <td class="severity-high">{report.risk_summary.high_severity_count}</td>
-            </tr>
-            <tr>
-                <td>Medium Severity</td>
                 <td class="severity-medium">{report.risk_summary.medium_severity_count}</td>
-            </tr>
-            <tr>
-                <td>Low Severity</td>
                 <td class="severity-low">{report.risk_summary.low_severity_count}</td>
             </tr>
         </table>
+        {severity_bar_html}
     </div>
     """
     
-    # Risky Clauses Section
+    # Top Risks section (first 5 risky clauses)
+    if report.risky_clauses:
+        html += """
+    <div class="section">
+        <h2>Top Risks</h2>
+        """
+        for risky in report.risky_clauses[:5]:
+            html += f"""
+        <div class="top-risk-item">
+            <span class="risk-badge {risky.severity}">{risky.severity.upper()}</span>
+            <span class="clause-number">Clause {escape_html(risky.clause_number)}</span>
+            <span class="risk-reason">{escape_html(_truncate(risky.reason, 140))}</span>
+        </div>
+        """
+        html += "</div>"
+    
+    # Risky Clauses Section (compact table)
     if report.risky_clauses:
         html += """
     <div class="section">
         <h2>Risky Clauses</h2>
+        <table class="risky-clauses-table">
+            <tr>
+                <th>Clause #</th>
+                <th>Severity</th>
+                <th>Clause Text</th>
+                <th>Why It Matters</th>
+            </tr>
         """
         for risky in report.risky_clauses:
             html += f"""
-        <div class="clause-box">
-            <div class="clause-header">
-                <span class="clause-number">Clause {escape_html(risky.clause_number)}</span>
-                <span class="risk-badge {risky.severity}">{risky.severity.upper()}</span>
-            </div>
-            <p class="clause-text">{escape_html(risky.clause_text)}</p>
-            <div class="risk-details">
-                <h4>Risk Assessment</h4>
-                <p><strong>Reason:</strong> {escape_html(risky.reason)}</p>
-                <p><strong>Explanation:</strong> {escape_html(risky.explanation)}</p>
-                <p class="citation"><strong>Legal Citation:</strong> {escape_html(risky.formatted_citation)}</p>
-            </div>
-        </div>
+            <tr>
+                <td class="clause-number">{escape_html(risky.clause_number)}</td>
+                <td><span class="risk-badge {risky.severity}">{risky.severity.upper()}</span></td>
+                <td class="clause-text-cell">{escape_html(_truncate(risky.clause_text, 160))}</td>
+                <td class="explanation-cell">{escape_html(_truncate(risky.explanation, 240))}</td>
+            </tr>
+            """
+        html += """
+        </table>
+    </div>
         """
-        html += "</div>"
     
-    # Missing Clauses Section
+    # Missing Clauses Section (compact table)
     if report.missing_clauses:
         html += """
     <div class="section">
         <h2>Missing Clauses</h2>
+        <table class="missing-clauses-table">
+            <tr>
+                <th>Expected Clause</th>
+                <th>Severity</th>
+                <th>Why It Matters</th>
+            </tr>
         """
         for missing in report.missing_clauses:
             html += f"""
-        <div class="clause-box">
-            <div class="clause-header">
-                <span class="clause-number">Expected: {escape_html(missing.expected_clause_type)}</span>
-                <span class="risk-badge {missing.severity}">{missing.severity.upper()}</span>
-            </div>
-            <div class="risk-details">
-                <p><strong>Reason:</strong> {escape_html(missing.reason)}</p>
-                <p><strong>Explanation:</strong> {escape_html(missing.explanation)}</p>
-                <p class="citation"><strong>Legal Citation:</strong> {escape_html(missing.formatted_citation)}</p>
-            </div>
-        </div>
+            <tr>
+                <td class="clause-type">{escape_html(missing.expected_clause_type)}</td>
+                <td><span class="risk-badge {missing.severity}">{missing.severity.upper()}</span></td>
+                <td class="explanation-cell">{escape_html(_truncate(missing.explanation, 240))}</td>
+            </tr>
+            """
+        html += """
+        </table>
+    </div>
         """
-        html += "</div>"
     
-    # Legal References Appendix
+    # Legal References Appendix (compact)
     if report.legal_references:
         html += """
     <div class="section">
         <h2>Legal References</h2>
-        <table class="references-table">
+        <table class="references-table compact">
             <tr>
                 <th>Citation</th>
                 <th>Usage Count</th>
@@ -200,62 +252,71 @@ def _build_html(report: ContractReport) -> str:
 def _build_css() -> str:
     """Build CSS styles for the PDF report."""
     return """
+    @page {
+        margin: 1.5cm;
+        
+        @bottom-center {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 8pt;
+            color: #666;
+        }
+        
+        @bottom-right {
+            content: "AI-generated analysis. Not legal advice.";
+            font-size: 8pt;
+            color: #999;
+            font-style: italic;
+        }
+    }
+    
     body {
         font-family: Arial, sans-serif;
-        margin: 2cm;
+        font-size: 10pt;
         color: #333;
+        line-height: 1.4;
     }
     
     h1 {
-        font-size: 32px;
-        margin-bottom: 16px;
+        font-size: 20pt;
+        margin: 0 0 8px 0;
+        color: #2c3e50;
     }
     
     h2 {
-        font-size: 24px;
-        margin-top: 24px;
+        font-size: 14pt;
+        margin: 16px 0 8px 0;
+        color: #2c3e50;
+        border-bottom: 1px solid #3498db;
+        padding-bottom: 4px;
+    }
+    
+    /* Compact Header (replaces cover page) */
+    .compact-header {
         margin-bottom: 16px;
-        color: #2c3e50;
+        padding-bottom: 12px;
         border-bottom: 2px solid #3498db;
-        padding-bottom: 8px;
     }
     
-    h4 {
-        font-size: 16px;
-        margin-top: 12px;
-        margin-bottom: 8px;
-        color: #555;
-    }
-    
-    /* Cover Page */
-    .cover-page {
-        text-align: center;
-        page-break-after: always;
-        padding-top: 100px;
-    }
-    
-    .cover-page h1 {
-        color: #2c3e50;
-    }
-    
-    .cover-page h2 {
+    .compact-header .filename {
+        font-size: 12pt;
+        font-weight: bold;
+        margin: 4px 0;
         color: #34495e;
-        border: none;
     }
     
-    .cover-page .date {
-        font-size: 18px;
+    .compact-header .date {
+        font-size: 9pt;
         color: #7f8c8d;
-        margin: 24px 0;
+        margin: 4px 0 8px 0;
     }
     
     /* Risk Badges */
     .risk-badge {
         display: inline-block;
-        padding: 4px 12px;
-        border-radius: 4px;
+        padding: 2px 8px;
+        border-radius: 3px;
         font-weight: bold;
-        font-size: 14px;
+        font-size: 8pt;
     }
     
     .risk-badge.high {
@@ -282,28 +343,86 @@ def _build_css() -> str:
         border: 1px solid #060;
     }
     
-    /* Tables */
-    .summary-table,
-    .references-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 16px 0;
+    /* Severity Bar */
+    .severity-bar {
+        display: flex;
+        height: 20px;
+        margin: 12px 0;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid #ddd;
     }
     
-    .summary-table th,
-    .summary-table td,
-    .references-table th,
-    .references-table td {
+    .severity-segment {
+        height: 100%;
+    }
+    
+    .severity-segment.high {
+        background: #dc3545;
+    }
+    
+    .severity-segment.medium {
+        background: #ffc107;
+    }
+    
+    .severity-segment.low {
+        background: #ffeb3b;
+    }
+    
+    .severity-segment.neutral {
+        background: #ccc;
+    }
+    
+    /* Tables - Compact */
+    .summary-table.compact,
+    .references-table.compact,
+    .risky-clauses-table,
+    .missing-clauses-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 8px 0;
+        font-size: 9pt;
+    }
+    
+    .summary-table.compact th,
+    .summary-table.compact td,
+    .references-table.compact th,
+    .references-table.compact td,
+    .risky-clauses-table th,
+    .risky-clauses-table td,
+    .missing-clauses-table th,
+    .missing-clauses-table td {
         border: 1px solid #ddd;
-        padding: 12px;
+        padding: 6px 8px;
         text-align: left;
     }
     
-    .summary-table th,
-    .references-table th {
+    .summary-table.compact th,
+    .references-table.compact th,
+    .risky-clauses-table th,
+    .missing-clauses-table th {
         background: #3498db;
         color: white;
         font-weight: bold;
+        font-size: 9pt;
+    }
+    
+    .risky-clauses-table tr,
+    .missing-clauses-table tr {
+        page-break-inside: avoid;
+    }
+    
+    .risky-clauses-table .clause-number,
+    .missing-clauses-table .clause-type {
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    
+    .risky-clauses-table .clause-text-cell,
+    .risky-clauses-table .explanation-cell,
+    .missing-clauses-table .explanation-cell {
+        font-size: 8pt;
+        line-height: 1.3;
     }
     
     .severity-high {
@@ -321,57 +440,34 @@ def _build_css() -> str:
         font-weight: bold;
     }
     
-    /* Clause Boxes */
-    .clause-box {
-        border: 1px solid #bdc3c7;
-        padding: 16px;
-        margin: 16px 0;
-        background: #f8f9fa;
-        page-break-inside: avoid;
-    }
-    
-    .clause-header {
+    /* Top Risks Items */
+    .top-risk-item {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid #eee;
     }
     
-    .clause-number {
+    .top-risk-item .clause-number {
         font-weight: bold;
-        font-size: 16px;
-        color: #2c3e50;
+        font-size: 9pt;
+        min-width: 80px;
     }
     
-    .clause-text {
-        background: white;
-        padding: 12px;
-        border-left: 4px solid #3498db;
-        margin: 12px 0;
-        font-family: Georgia, serif;
-        line-height: 1.6;
-    }
-    
-    .risk-details {
-        margin-top: 12px;
-    }
-    
-    .risk-details p {
-        margin: 8px 0;
-        line-height: 1.5;
+    .top-risk-item .risk-reason {
+        font-size: 9pt;
+        color: #555;
     }
     
     /* Citations */
     .citation {
         font-family: 'Courier New', monospace;
-        background: #ecf0f1;
-        padding: 4px 8px;
-        border-radius: 3px;
-        font-size: 13px;
+        font-size: 8pt;
     }
     
     /* Sections */
     .section {
-        margin-bottom: 32px;
+        margin-bottom: 16px;
     }
     """
