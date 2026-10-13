@@ -5,7 +5,7 @@ import { Input, Button, Card, Logo } from '../../components/ui';
 import { ApiError } from '../../lib/api';
 import { toast } from 'sonner';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ShieldCheck, FileSearch, MessageSquare, Eye, EyeOff } from 'lucide-react';
+import { ShieldCheck, FileSearch, MessageSquare } from 'lucide-react';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,7 +13,6 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [selectedClause, setSelectedClause] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [displayScore, setDisplayScore] = useState(0);
@@ -321,10 +320,8 @@ export function LoginPage() {
               Plain-language explanation
             </motion.div>
 
-            {/* Footer disclaimer */}
-            <p className="mt-4 text-xs text-blue-200 text-center">
-              Sample data for illustration. Not legal advice.
-            </p>
+        
+    
           </div>
         </div>
       </div>
@@ -356,29 +353,15 @@ export function LoginPage() {
                 required
               />
               
-              <div className="relative">
-                <Input
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  error={passwordError}
-                  placeholder="••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-3 top-9 text-text-tertiary hover:text-text-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded p-1"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
+              <Input
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={passwordError}
+                placeholder="••••••••"
+                required
+              />
               
               <div className="flex justify-end">
                 <Link to="/forgot-password" className="text-sm text-primary hover:underline">
