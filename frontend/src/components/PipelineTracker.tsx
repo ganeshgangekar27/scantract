@@ -5,6 +5,8 @@
  */
 
 import { Button } from './ui';
+import { motion, useReducedMotion } from 'framer-motion';
+import { CheckCircle2, Loader2, XCircle, Circle } from 'lucide-react';
 
 export interface PipelineTrackerProps {
   stage: string | null;
@@ -39,6 +41,8 @@ export function PipelineTracker({
   errorMessage,
   onRetry,
 }: PipelineTrackerProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   const getStageState = (stageKey: string): StageState => {
     // If failed, mark the failed stage
     if (status === 'failed' && failedStage === stageKey) {
@@ -71,86 +75,123 @@ export function PipelineTracker({
   };
 
   const getStageIcon = (state: StageState) => {
+    const iconSize = 'w-5 h-5';
+
     switch (state) {
       case 'done':
-        return (
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-success text-white">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        );
-
+        return <CheckCircle2 className={iconSize} />;
       case 'active':
-        return (
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          </div>
-        );
-
+        return <Loader2 className={`${iconSize} ${shouldReduceMotion ? '' : 'animate-spin'}`} />;
       case 'failed':
-        return (
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-severity-high text-white">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </div>
-        );
-
+        return <XCircle className={iconSize} />;
       case 'pending':
       default:
-        return (
-          <div className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-border bg-background-secondary">
-            <div className="w-2 h-2 rounded-full bg-text-tertiary" />
-          </div>
-        );
+        return <Circle className={iconSize} />;
+    }
+  };
+
+  const getStageIconContainer = (state: StageState) => {
+    const baseClasses = 'flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-full transition-all';
+
+    switch (state) {
+      case 'done':
+        return `${baseClasses} bg-green-500 text-white dark:bg-green-600`;
+      case 'active':
+        return `${baseClasses} bg-blue-500 text-white dark:bg-blue-600 ${
+          shouldReduceMotion ? '' : 'ring-4 ring-blue-200 dark:ring-blue-900/50 animate-pulse'
+        }`;
+      case 'failed':
+        return `${baseClasses} bg-red-500 text-white dark:bg-red-600`;
+      case 'pending':
+      default:
+        return `${baseClasses} bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500`;
     }
   };
 
   const getStageTextColor = (state: StageState) => {
     switch (state) {
       case 'done':
-        return 'text-success';
+        return 'text-green-700 dark:text-green-400';
       case 'active':
-        return 'text-primary font-medium';
+        return 'text-blue-700 dark:text-blue-400 font-medium';
       case 'failed':
-        return 'text-severity-high font-medium';
+        return 'text-red-700 dark:text-red-400 font-medium';
       case 'pending':
       default:
-        return 'text-text-tertiary';
+        return 'text-gray-500 dark:text-gray-400';
     }
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 bg-background-secondary rounded-lg border border-border">
+    <div className="w-full max-w-2xl md:max-w-4xl mx-auto p-6 bg-background-secondary rounded-lg border border-border">
       <h3 className="text-lg font-semibold text-text-primary mb-6">
         Processing Pipeline
       </h3>
 
-      <div className="space-y-4">
+      {/* Responsive stepper: vertical on mobile, horizontal on desktop */}
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-2">
         {STAGES.map((stageInfo, index) => {
           const state = getStageState(stageInfo.key);
           const isLast = index === STAGES.length - 1;
+          const progress = index > 0 && STAGES[index - 1] ? getStageState(STAGES[index - 1].key) === 'done' : false;
 
           return (
-            <div key={stageInfo.key}>
-              <div className="flex items-start gap-4">
-                <div className="flex flex-col items-center">
-                  {getStageIcon(state)}
+            <div key={stageInfo.key} className="flex flex-1 relative">
+              {/* Mobile: Horizontal layout with progress line to the right */}
+              {/* Desktop: Vertical layout with progress line below */}
+              <div className="flex md:flex-col items-center md:items-center w-full">
+                {/* Icon and progress line container */}
+                <div className="flex md:flex-col items-center">
+                  {/* Stage icon */}
+                  <div
+                    className={getStageIconContainer(state)}
+                    aria-current={state === 'active' ? 'step' : undefined}
+                  >
+                    {getStageIcon(state)}
+                  </div>
+
+                  {/* Progress line - horizontal on mobile, vertical on desktop */}
                   {!isLast && (
-                    <div className={`w-0.5 h-8 mt-2 ${state === 'done' ? 'bg-success' : 'bg-border'}`} />
+                    <div className="flex-1 md:flex-initial flex md:flex-col items-center">
+                      {/* Mobile: horizontal line */}
+                      <div className="md:hidden h-0.5 w-full min-w-[20px] relative bg-gray-200 dark:bg-gray-700">
+                        {progress && (
+                          <motion.div
+                            className="absolute inset-0 bg-green-500 dark:bg-green-600"
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: 1 }}
+                            transition={{ duration: shouldReduceMotion ? 0 : 0.5 }}
+                            style={{ transformOrigin: 'left' }}
+                          />
+                        )}
+                      </div>
+                      {/* Desktop: vertical line */}
+                      <div className="hidden md:block w-0.5 h-8 relative bg-gray-200 dark:bg-gray-700 my-2">
+                        {progress && (
+                          <motion.div
+                            className="absolute inset-0 bg-green-500 dark:bg-green-600"
+                            initial={{ scaleY: 0 }}
+                            animate={{ scaleY: 1 }}
+                            transition={{ duration: shouldReduceMotion ? 0 : 0.5 }}
+                            style={{ transformOrigin: 'top' }}
+                          />
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex-1 pt-1">
+                {/* Stage label */}
+                <div className="flex-1 ml-3 md:ml-0 md:mt-3 md:text-center">
                   <p className={`text-sm ${getStageTextColor(state)}`}>
                     {stageInfo.label}
                   </p>
 
+                  {/* Error message - show below the label */}
                   {state === 'failed' && errorMessage && (
-                    <div className="mt-2 p-3 bg-severity-high-bg border border-severity-high-border rounded text-sm text-severity-high">
-                      <p className="font-medium mb-1">Error:</p>
-                      <p>{errorMessage}</p>
+                    <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900 rounded text-sm text-left">
+                      <p className="font-medium text-red-800 dark:text-red-400 mb-1">Error:</p>
+                      <p className="text-red-700 dark:text-red-300">{errorMessage}</p>
                       {onRetry && (
                         <Button onClick={onRetry} variant="secondary" className="mt-3">
                           Try again
