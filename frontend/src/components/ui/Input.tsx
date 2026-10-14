@@ -41,7 +41,7 @@ export function Input({
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-transparent',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             error ? 'border-severity-high' : 'border-border',
-            isPassword && 'pr-10',
+            isPassword && 'pr-11',
             className
           )}
           {...props}
@@ -53,7 +53,7 @@ export function Input({
             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
-            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
           </button>
         )}
       </div>
