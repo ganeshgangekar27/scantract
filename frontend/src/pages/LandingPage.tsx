@@ -49,9 +49,6 @@ export function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-text-secondary">
-            <span className="font-semibold text-text-primary">ScanTract</span> — Contract analysis for rental and freelance agreements
-          </p>
           <div className="mt-4 space-x-6">
             <Link to="/privacy" className="text-text-secondary hover:text-primary transition-colors">
               Privacy
@@ -60,6 +57,7 @@ export function LandingPage() {
               Terms
             </Link>
           </div>
+          <p className="mt-4 text-sm text-text-secondary">© {new Date().getFullYear()} ScanTract. All rights reserved.</p>
         </div>
       </footer>
 
