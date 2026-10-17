@@ -21,15 +21,6 @@ export function LandingPage() {
       <OptionalVideo />
       <FAQ />
 
-      {/* Disclaimer Strip */}
-      <div className="bg-severity-medium-bg border-y border-severity-medium-border py-4">
-        <div className="max-w-7xl mx-auto px-6">
-          <p className="text-center text-severity-medium text-sm">
-            <strong>Important:</strong> Sample knowledge base, not legal advice. For informational purposes only. Consult a licensed attorney for legal guidance.
-          </p>
-        </div>
-      </div>
-
       {/* Final CTA */}
       <section ref={ctaRef} className="reveal max-w-7xl mx-auto px-6 py-20 text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-6">
