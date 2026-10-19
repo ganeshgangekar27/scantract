@@ -304,13 +304,6 @@ export function InteractiveDemo() {
               </div>
             </div>
           </div>
-
-          {/* Sample Data Label */}
-          <div className="mt-6 pt-4 border-t border-border text-center">
-            <p className="text-xs text-text-secondary italic">
-              Sample data for illustration
-            </p>
-          </div>
         </div>
       </div>
     </section>
