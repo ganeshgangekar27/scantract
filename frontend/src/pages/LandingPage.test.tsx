@@ -63,10 +63,10 @@ describe('LandingPage', () => {
     expect(loginLink.getAttribute('href')).toBe('/login');
   });
 
-  it('displays disclaimer text about sample knowledge base', () => {
+  it('disclaimer text has been removed from landing page', () => {
     renderLandingPage();
     
-    expect(screen.getByText(/Sample knowledge base, not legal advice/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Sample knowledge base, not legal advice/i)).not.toBeInTheDocument();
   });
 
   it('shows three feature cards', () => {
@@ -91,11 +91,11 @@ describe('LandingPage', () => {
     expect(screen.getByText('Review report')).toBeInTheDocument();
   });
 
-  it('displays footer with product name', () => {
+  it('displays footer with copyright', () => {
     renderLandingPage();
     
-    // Footer should contain the product tagline
-    expect(screen.getByText(/Contract analysis for rental and freelance agreements/i)).toBeInTheDocument();
+    // Footer should contain copyright notice
+    expect(screen.getByText(/All rights reserved/i)).toBeInTheDocument();
   });
 
   // New tests for interactive features
@@ -139,11 +139,11 @@ describe('LandingPage', () => {
     expect(videos.length).toBe(0);
   });
 
-  it('disclaimer and both CTA hrefs are present', () => {
+  it('CTA hrefs are present (disclaimer removed)', () => {
     renderLandingPage();
     
-    // Disclaimer
-    expect(screen.getByText(/Sample knowledge base, not legal advice/i)).toBeInTheDocument();
+    // Disclaimer removed
+    expect(screen.queryByText(/Sample knowledge base, not legal advice/i)).not.toBeInTheDocument();
     
     // Both CTAs link to /signup
     const signupLinks = screen.getAllByRole('link', { name: /Get started/i });
