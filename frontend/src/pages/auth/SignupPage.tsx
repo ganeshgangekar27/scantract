@@ -4,6 +4,8 @@ import { useAuth } from '../../auth/AuthContext';
 import { Input, Button, Card, Logo, PasswordStrength } from '../../components/ui';
 import { ApiError } from '../../lib/api';
 import { toast } from 'sonner';
+import { motion, useReducedMotion } from 'framer-motion';
+import { ShieldCheck, FileSearch, MessageSquare } from 'lucide-react';
 
 export function SignupPage() {
   const [fullName, setFullName] = useState('');
@@ -16,6 +18,7 @@ export function SignupPage() {
   
   const { register } = useAuth();
   const navigate = useNavigate();
+  const shouldReduceMotion = useReducedMotion();
   
   const validateEmail = (email: string): string => {
     if (!email) return 'Email is required';
@@ -110,97 +113,169 @@ export function SignupPage() {
       setLoading(false);
     }
   };
+
+  const benefits = [
+    { icon: ShieldCheck, text: 'Spot risky clauses' },
+    { icon: FileSearch, text: 'Understand them in plain language' },
+    { icon: MessageSquare, text: "Know what's missing" },
+  ];
   
   return (
     <div className="min-h-screen flex bg-background">
       {/* Left panel - desktop only */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary-dark items-center justify-center p-12 relative overflow-hidden">
-        {/* Animated floating shapes */}
-        <div className="absolute top-20 left-20 w-32 h-32 bg-white/10 rounded-full animate-pulse" />
-        <div className="absolute bottom-40 right-32 w-24 h-24 bg-white/10 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 right-20 w-40 h-40 bg-white/10 rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 items-center justify-center p-12 relative overflow-hidden">
+        {/* Richer background: grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
         
-        <div className="relative z-10 text-white text-center max-w-md">
-          <Logo showText={false} className="mb-8 mx-auto" />
-          <h1 className="text-4xl font-bold mb-6">ScanTract</h1>
-          <p className="text-xl leading-relaxed opacity-90">
-            Know what you're signing<br />
-            before you sign it.
-          </p>
+        {/* Blurred glow orbs */}
+        <motion.div
+          className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl"
+          animate={shouldReduceMotion ? {} : {
+            x: [0, 30, 0],
+            y: [0, -20, 0],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+          aria-hidden="true"
+        />
+        <motion.div
+          className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-indigo-400/15 rounded-full blur-3xl"
+          animate={shouldReduceMotion ? {} : {
+            x: [0, -40, 0],
+            y: [0, 30, 0],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+          aria-hidden="true"
+        />
+        
+        <div className="relative z-10 text-white max-w-md">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold mb-3 text-center">ScanTract</h1>
+            <p className="text-lg text-blue-100 text-center">
+              AI contract risk analysis
+            </p>
+          </div>
+          
+          <div className="space-y-4 mt-12">
+            {benefits.map((benefit, i) => {
+              const Icon = benefit.icon;
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: shouldReduceMotion ? 0 : -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, delay: shouldReduceMotion ? 0 : i * 0.1 }}
+                  className="flex items-center gap-3 text-blue-50"
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="text-base">{benefit.text}</span>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Call to action text */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mt-16 text-center"
+          >
+            <p className="text-xl text-blue-100 leading-relaxed">
+              Know what you're signing<br />
+              before you sign it.
+            </p>
+          </motion.div>
         </div>
       </div>
       
       {/* Right panel - form */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
-        <Card className="w-full max-w-md p-8">
-          <div className="lg:hidden flex justify-center mb-6">
-            <Logo />
-          </div>
-          
-          <h2 className="text-2xl font-bold text-text-primary mb-2">Create an account</h2>
-          <p className="text-text-secondary mb-6">Get started with ScanTract</p>
-          
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
-            <Input
-              label="Full name"
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              onBlur={() => handleBlur('fullName')}
-              error={touched.fullName ? errors.fullName : ''}
-              placeholder="John Doe"
-              required
-            />
-            
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => handleBlur('email')}
-              error={touched.email ? errors.email : ''}
-              placeholder="you@example.com"
-              required
-            />
-            
-            <div>
-              <Input
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onBlur={() => handleBlur('password')}
-                error={touched.password ? errors.password : ''}
-                placeholder="••••••••"
-                hint="At least 8 characters"
-                required
-              />
-              {password && <PasswordStrength password={password} />}
+        <motion.div
+          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-md"
+        >
+          <Card className="p-8 shadow-xl">
+            <div className="lg:hidden flex justify-center mb-6">
+              <Logo />
             </div>
             
-            <Input
-              label="Confirm password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              onBlur={() => handleBlur('confirmPassword')}
-              error={touched.confirmPassword ? errors.confirmPassword : ''}
-              placeholder="••••••••"
-              required
-            />
+            <h2 className="text-2xl font-bold text-text-primary mb-2">Create an account</h2>
+            <p className="text-text-secondary mb-6">Get started with ScanTract</p>
             
-            <Button type="submit" loading={loading} className="w-full">
-              Create account
-            </Button>
-          </form>
-          
-          <p className="mt-6 text-center text-sm text-text-secondary">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary hover:underline font-medium">
-              Log in
-            </Link>
-          </p>
-        </Card>
+            <form onSubmit={handleSubmit} noValidate className="space-y-5">
+              <Input
+                label="Full name"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                onBlur={() => handleBlur('fullName')}
+                error={touched.fullName ? errors.fullName : ''}
+                placeholder="John Doe"
+                required
+              />
+              
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => handleBlur('email')}
+                error={touched.email ? errors.email : ''}
+                placeholder="you@example.com"
+                required
+              />
+              
+              <div>
+                <Input
+                  label="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => handleBlur('password')}
+                  error={touched.password ? errors.password : ''}
+                  placeholder="••••••••"
+                  hint="At least 8 characters"
+                  required
+                />
+                {password && <PasswordStrength password={password} />}
+              </div>
+              
+              <Input
+                label="Confirm password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => handleBlur('confirmPassword')}
+                error={touched.confirmPassword ? errors.confirmPassword : ''}
+                placeholder="••••••••"
+                required
+              />
+              
+              <Button type="submit" loading={loading} className="w-full">
+                Create account
+              </Button>
+            </form>
+            
+            <p className="mt-6 text-center text-sm text-text-secondary">
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary hover:underline font-medium">
+                Log in
+              </Link>
+            </p>
+          </Card>
+        </motion.div>
       </div>
     </div>
   );
