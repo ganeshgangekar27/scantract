@@ -73,6 +73,9 @@ services:
       # Authentication
       JWT_SECRET: ${JWT_SECRET}
       RESET_LINK_MODE: ${RESET_LINK_MODE:-demo}
+      
+      # CORS Configuration
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
     ports:
       - "8000:8000"
     volumes:

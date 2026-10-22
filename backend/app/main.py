@@ -4,6 +4,7 @@ ScanTract FastAPI application entrypoint.
 Configures and starts the FastAPI application with all route modules.
 """
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -24,6 +25,36 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_allowed_origins() -> list[str]:
+    """
+    Get allowed CORS origins from environment variable.
+    
+    Reads CORS_ORIGINS env var (comma-separated URLs), validates and filters:
+    - Strips whitespace from each origin
+    - Removes empty strings
+    - Removes "*" wildcard (incompatible with allow_credentials=True)
+    
+    Returns:
+        List of allowed origin URLs. Defaults to localhost ports if env var
+        is unset, empty, or results in no valid origins after filtering.
+    """
+    default_origins = ["http://localhost:5173", "http://localhost:3000"]
+    
+    origins_str = os.getenv("CORS_ORIGINS", "")
+    if not origins_str:
+        return default_origins
+    
+    # Split on commas, strip whitespace, filter out empty strings and "*"
+    origins = [
+        origin.strip()
+        for origin in origins_str.split(",")
+        if origin.strip() and origin.strip() != "*"
+    ]
+    
+    # Return default if no valid origins remain after filtering
+    return origins if origins else default_origins
 
 
 @asynccontextmanager
@@ -90,7 +121,7 @@ app = FastAPI(
 # Configure CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # Vite default ports
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
