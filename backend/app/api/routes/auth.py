@@ -230,7 +230,7 @@ async def get_me(
     )
 
 
-@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+@router.post("/forgot-password", response_model=ForgotPasswordResponse, response_model_exclude_none=True)
 async def forgot_password(
     request: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db)
@@ -287,10 +287,12 @@ async def forgot_password(
             response.demo_reset_link = reset_link
             logger.info(f"Password reset link for {user.email}: {reset_link}")
         else:
-            # SMTP mode: send email (TODO)
-            logger.warning("SMTP password reset not implemented yet")
-            raise NotImplementedError(
-                "Email sending not implemented. Set RESET_LINK_MODE=demo to use demo mode."
+            # Non-demo mode: log that reset was requested (without token)
+            # In production, this is where email would be sent via SMTP
+            logger.warning(
+                f"Password reset requested for {user.email}. "
+                "RESET_LINK_MODE is not 'demo', email sending not implemented. "
+                "Token generated but not sent."
             )
     
     return response
