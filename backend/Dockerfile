@@ -36,5 +36,6 @@ ENV PYTHONPATH=/app
 
 EXPOSE 8000
 
-# Default command (overridden by docker-compose to run migrations first)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command: run migrations, seed databases, then start server
+# Uses PORT environment variable (defaults to 8000) for Render compatibility
+CMD ["sh", "-c", "alembic upgrade head && python db/legal_kb/seed_legal_kb.py && python db/reference_corpus/seed_reference_corpus.py && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
