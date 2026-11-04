@@ -14,6 +14,46 @@ export function ForgotPasswordPage() {
   const { forgotPassword } = useAuth();
   const navigate = useNavigate();
   
+  const resetDisabled = import.meta.env.VITE_RESET_DISABLED === 'true';
+  
+  if (resetDisabled) {
+    return (
+      <div className="min-h-screen flex bg-background">
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary-dark items-center justify-center p-12 relative overflow-hidden">
+          <div className="absolute top-20 left-20 w-32 h-32 bg-white/10 rounded-full animate-pulse" />
+          <div className="absolute bottom-40 right-32 w-24 h-24 bg-white/10 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 right-20 w-40 h-40 bg-white/10 rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+          
+          <div className="relative z-10 text-white text-center max-w-md">
+            <Logo showText={false} className="mb-8 mx-auto" />
+            <h1 className="text-4xl font-bold mb-6">ScanTract</h1>
+            <p className="text-xl leading-relaxed opacity-90">
+              Know what you're signing<br />
+              before you sign it.
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+          <Card className="w-full max-w-md p-8">
+            <div className="lg:hidden flex justify-center mb-6">
+              <Logo />
+            </div>
+            
+            <h2 className="text-2xl font-bold text-text-primary mb-2">Password reset unavailable</h2>
+            <p className="text-text-secondary mb-6">
+              Email password reset is not available on this site. Please create a new account or contact the site owner.
+            </p>
+            
+            <Button onClick={() => navigate('/login')} variant="secondary" className="w-full">
+              Back to login
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+  
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);

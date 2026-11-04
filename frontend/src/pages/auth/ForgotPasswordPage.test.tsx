@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
@@ -25,6 +25,10 @@ describe('ForgotPasswordPage', () => {
     vi.clearAllMocks();
     globalThis.fetch = vi.fn();
     vi.mocked(localStorage.getItem).mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   const renderForgotPasswordPage = () => {
@@ -94,5 +98,33 @@ describe('ForgotPasswordPage', () => {
     await waitFor(() => {
       expect(screen.queryByText(/demo mode/i)).not.toBeInTheDocument();
     });
+  });
+
+  it('shows unavailable message when VITE_RESET_DISABLED is true', () => {
+    vi.stubEnv('VITE_RESET_DISABLED', 'true');
+    renderForgotPasswordPage();
+
+    expect(screen.getByText(/password reset unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText(/email password reset is not available on this site/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /back to login/i })).toBeInTheDocument();
+  });
+
+  it('does not call forgotPassword API when reset is disabled', () => {
+    vi.stubEnv('VITE_RESET_DISABLED', 'true');
+    const mockFetch = vi.mocked(globalThis.fetch);
+    renderForgotPasswordPage();
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /send reset link/i })).not.toBeInTheDocument();
+  });
+
+  it('shows email input when VITE_RESET_DISABLED is not set', () => {
+    vi.unstubAllEnvs();
+    renderForgotPasswordPage();
+
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /send reset link/i })).toBeInTheDocument();
+    expect(screen.queryByText(/password reset unavailable/i)).not.toBeInTheDocument();
   });
 });
