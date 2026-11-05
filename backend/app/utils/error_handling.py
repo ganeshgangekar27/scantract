@@ -12,7 +12,7 @@ def friendly_error(text_or_exception) -> str:
     
     Rules:
     - Rate limit errors (429, "rate limit", "free-models-per-day") → friendly daily limit message
-    - Other errors: redact API keys, collapse whitespace, truncate to 300 chars
+    - Other errors: redact API keys, redact file paths, collapse whitespace, truncate to 300 chars
     
     Args:
         text_or_exception: Error text or Exception object
@@ -26,6 +26,9 @@ def friendly_error(text_or_exception) -> str:
         
         >>> friendly_error("Failed with key sk-or-v1-abc123def456")
         "Failed with key [redacted]"
+        
+        >>> friendly_error("FileNotFoundError: PDF file not found: /app/uploads/file.pdf")
+        "FileNotFoundError: PDF file not found: [path redacted]"
     """
     # Convert to string
     text = str(text_or_exception)
@@ -39,6 +42,12 @@ def friendly_error(text_or_exception) -> str:
     # Pattern: sk-or-v1-{alphanum}+ or AIza{alphanum/dash/underscore}{20+}
     text = re.sub(r'sk-or-v1-[0-9a-zA-Z]+', '[redacted]', text)
     text = re.sub(r'AIza[0-9A-Za-z_-]{20,}', '[redacted]', text)
+    
+    # Redact file paths (Unix-style /path/to/file and Windows-style C:\path\to\file)
+    # Match: /something/... or C:\something\... or \\something\...
+    text = re.sub(r'/[/\w\-\.]+\.\w+', '[path redacted]', text)
+    text = re.sub(r'[A-Za-z]:\\[\\\w\-\.]+\.\w+', '[path redacted]', text)
+    text = re.sub(r'\\\\[\\\w\-\.]+\.\w+', '[path redacted]', text)
     
     # Collapse whitespace
     text = re.sub(r'\s+', ' ', text)

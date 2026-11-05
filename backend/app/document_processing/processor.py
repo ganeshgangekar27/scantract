@@ -13,6 +13,7 @@ from app.document_processing.extractor import extract_text_from_pdf, extract_tex
 from app.document_processing.normalizer import clean_and_normalize
 from app.document_processing.segmenter import segment_clauses
 from app.document_processing.orchestrator import run_full_pipeline
+from app.utils.error_handling import friendly_error
 
 
 logger = logging.getLogger(__name__)
@@ -120,7 +121,7 @@ async def process_contract(
                 result = await db.execute(select(Contract).where(Contract.id == contract_id))
                 contract = result.scalar_one()
                 contract.processing_status = 'failed'
-                contract.error_message = f"{type(e).__name__}: {str(e)}"
+                contract.error_message = friendly_error(e)
                 await db.commit()
             except Exception as db_error:
                 logger.error(f"Failed to update contract status after error: {str(db_error)}")
