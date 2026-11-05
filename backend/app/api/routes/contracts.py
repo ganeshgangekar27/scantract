@@ -372,6 +372,13 @@ async def retry_contract(
             detail="Can only retry contracts that have failed processing"
         )
     
+    # Check if original file still exists
+    if not contract.file_path or not os.path.exists(contract.file_path):
+        raise HTTPException(
+            status_code=409,
+            detail="The original file is no longer available. Please upload the contract again."
+        )
+    
     # Reset contract status
     contract.processing_status = 'uploaded'
     contract.pipeline_stage = 'uploaded'  # Set to initial stage

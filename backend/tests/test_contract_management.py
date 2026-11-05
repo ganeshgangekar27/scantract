@@ -215,23 +215,37 @@ async def test_retry_failed_contract_success():
     try:
         owner_id, other_id = await setup_users_and_contracts()
         
-        # Mock the background processing
-        with patch("app.api.routes.contracts.process_contract", new_callable=AsyncMock) as mock_process:
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                token = get_token_for_user("owner@contractmgmt.test", owner_id)
-                
-                response = await client.post(
-                    "/api/contracts/910012/retry",
-                    headers={"Authorization": f"Bearer {token}"}
-                )
-                
-                assert response.status_code == 202
-                data = response.json()
-                assert data["success"] is True
-                assert data["data"]["contract_id"] == 910012
-                
-                # Verify processing was queued
-                mock_process.assert_called_once()
+        # Create a temporary file for the failed contract
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.pdf', delete=False) as f:
+            f.write("Test PDF content")
+            temp_file_path = f.name
+        
+        try:
+            # Update the failed contract's file_path to point to the real temp file
+            async for db in get_test_db():
+                await db.execute(text("UPDATE contracts SET file_path = :path WHERE id = 910012"), {"path": temp_file_path})
+                await db.commit()
+                break
+            
+            # Mock the background processing
+            with patch("app.api.routes.contracts.process_contract", new_callable=AsyncMock) as mock_process:
+                async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                    token = get_token_for_user("owner@contractmgmt.test", owner_id)
+                    
+                    response = await client.post(
+                        "/api/contracts/910012/retry",
+                        headers={"Authorization": f"Bearer {token}"}
+                    )
+                    
+                    assert response.status_code == 202
+                    data = response.json()
+                    assert data["success"] is True
+                    assert data["data"]["contract_id"] == 910012
+                    
+                    # Verify processing was queued
+                    mock_process.assert_called_once()
+        finally:
+            Path(temp_file_path).unlink(missing_ok=True)
     finally:
         await cleanup_test_data()
 
@@ -252,6 +266,54 @@ async def test_retry_non_failed_contract_returns_409():
             
             assert response.status_code == 409
             assert "failed" in response.json()["detail"].lower()
+    finally:
+        await cleanup_test_data()
+
+
+@pytest.mark.asyncio
+async def test_retry_with_missing_file_returns_409():
+    """Cannot retry when the original file is gone."""
+    try:
+        owner_id, other_id = await setup_users_and_contracts()
+        
+        # The setup creates a failed contract with file_path='/tmp/failed.pdf' which doesn't exist
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            token = get_token_for_user("owner@contractmgmt.test", owner_id)
+            
+            response = await client.post(
+                "/api/contracts/910012/retry",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            assert response.status_code == 409
+            detail = response.json()["detail"]
+            assert "original file is no longer available" in detail.lower()
+            
+            # Verify contract status was NOT changed
+            async for db in get_test_db():
+                result = await db.execute(text("SELECT processing_status FROM contracts WHERE id = 910012"))
+                status = result.scalar()
+                assert status == 'failed'
+                break
+    finally:
+        await cleanup_test_data()
+
+
+@pytest.mark.asyncio
+async def test_retry_other_user_contract_returns_404():
+    """Other user gets 404 when trying to retry someone else's contract."""
+    try:
+        owner_id, other_id = await setup_users_and_contracts()
+        
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            token = get_token_for_user("other@contractmgmt.test", other_id)
+            
+            response = await client.post(
+                "/api/contracts/910012/retry",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            assert response.status_code == 404
     finally:
         await cleanup_test_data()
 
