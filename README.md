@@ -2,6 +2,15 @@
 
 AI-powered contract risk analysis for rental and freelance contracts using Indian legal norms. This system identifies risky clauses and missing terms, providing plain-language explanations and legal references without giving legal advice.
 
+## Live Demo
+
+- **Frontend**: https://scantract.vercel.app
+- **Backend API docs**: https://scantract-4.onrender.com/docs
+
+**Notes**:
+- Hosted on free tiers (Vercel, Render, Neon), so the first request after idle can take about a minute to wake up.
+- Live uploads are limited because the free LLM quota allows only a few analyses per day; the sample contract report is always available after login.
+
 ## What It Does
 
 ScanTract analyzes uploaded contracts through a multi-stage pipeline:
